@@ -1,0 +1,31 @@
+[server]
+host = "0.0.0.0"
+port = 8000
+
+[store]
+max_schemas = 1000
+max_scenarios = 1000
+max_executions = 1000
+max_reports = 1000
+ttl_seconds = 3600
+
+[execution]
+max_burst_requests = 500
+backoff_base = 1.0
+backoff_max = 30.0
+
+[llm]
+cache_ttl = 3600
+circuit_failure_threshold = 5
+circuit_reset_timeout = 60
+
+[auth]
+enabled = false
+
+[rate_limit]
+enabled = true
+requests_per_minute = 60
+
+[logging]
+level = "INFO"
+format = "text"

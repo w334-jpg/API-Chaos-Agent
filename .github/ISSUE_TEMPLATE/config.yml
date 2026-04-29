@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/w334-jpg/API-Chaos-Agent/tree/main/docs
+    about: Check the documentation before opening an issue
+  - name: GitHub Discussions
+    url: https://github.com/w334-jpg/API-Chaos-Agent/discussions
+    about: Ask questions and discuss ideas with the community

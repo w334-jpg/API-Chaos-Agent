@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - API_CHAOS_AGENT_HOST=0.0.0.0
+      - API_CHAOS_AGENT_PORT=8000
+      - API_CHAOS_AGENT_LLM__OLLAMA_BASE_URL=http://ollama:11434
+      - API_CHAOS_AGENT_LLM__OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - API_CHAOS_AGENT_LLM__ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - API_CHAOS_AGENT_SECURITY__JWT_SECRET=${JWT_SECRET:-change-me-in-production-use-a-strong-key}
+    volumes:
+      - backend-data:/app/data
+      - backend-reports:/app/reports
+    depends_on:
+      ollama:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  backend-data:
+  backend-reports:
+  ollama-data:

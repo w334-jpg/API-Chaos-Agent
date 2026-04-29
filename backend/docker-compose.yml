@@ -1,0 +1,16 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - STORE_BACKEND=sqlite
+      - STORE_SQLITE_PATH=/app/data/chaos_agent.db
+      - AUTH_ENABLED=false
+      - RATE_LIMIT_ENABLED=true
+      - RATE_LIMIT_REQUESTS_PER_MINUTE=60
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

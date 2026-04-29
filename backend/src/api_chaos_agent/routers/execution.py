@@ -1,0 +1,99 @@
+"""Execution router — manage test executions."""
+
+from __future__ import annotations
+
+from typing import Annotated
+
+from fastapi import APIRouter, HTTPException, Query
+
+import httpx
+
+from api_chaos_agent.core.security import CurrentUser
+from api_chaos_agent.models.report import ExecutionConfig, TestResult
+from api_chaos_agent.models.scenario import ChaosScenario
+from api_chaos_agent.services.execution_engine import ExecutionEngine
+from api_chaos_agent.services.store import store
+
+router = APIRouter(prefix="/api/executions", tags=["executions"])
+
+_MAX_ID_LEN = 256
+
+_mock_transport: httpx.AsyncBaseTransport | None = None
+
+
+def set_mock_transport(transport: httpx.AsyncBaseTransport | None) -> None:
+    global _mock_transport
+    _mock_transport = transport
+
+
+@router.post("/", response_model=dict)
+async def create_execution(
+    scenario_ids: Annotated[list[str], Query()],
+    base_url: str,
+    _user: CurrentUser,
+    concurrency: int = 10,
+    timeout_seconds: float = 30.0,
+    max_retries: int = 2,
+    retry_delay_seconds: float = 1.0,
+    serial: bool = False,
+) -> dict:
+    if not scenario_ids:
+        raise HTTPException(status_code=400, detail="scenario_ids must be a non-empty list")
+    for sid in scenario_ids:
+        if not isinstance(sid, str):
+            raise HTTPException(status_code=400, detail="Each scenario_id must be a string")
+        if len(sid) > _MAX_ID_LEN:
+            raise HTTPException(status_code=400, detail="scenario_id too long")
+
+    scenarios: list[ChaosScenario] = []
+    for sid in scenario_ids:
+        scenario = await store.get_scenario(sid)
+        if scenario is None:
+            raise HTTPException(status_code=404, detail=f"Scenario not found: {sid}")
+        scenarios.append(scenario)
+
+    config = ExecutionConfig(
+        base_url=base_url,
+        concurrency=concurrency,
+        timeout_seconds=timeout_seconds,
+        max_retries=max_retries,
+        retry_delay_seconds=retry_delay_seconds,
+        serial=serial,
+    )
+    engine = ExecutionEngine(config=config, transport=_mock_transport)
+    test_result = await engine.execute(scenarios)
+
+    execution_id = await store.save_execution(test_result)
+    return {
+        "execution_id": execution_id,
+        "total_scenarios": test_result.total_scenarios,
+        "completed": test_result.completed_scenarios,
+        "failed": test_result.failed_scenarios,
+    }
+
+
+@router.get("/", response_model=dict)
+async def list_executions(_user: CurrentUser) -> dict:
+    executions = await store.list_executions()
+    return {
+        "executions": [
+            {
+                "id": eid,
+                "started_at": str(e.started_at),
+                "total_scenarios": e.total_scenarios,
+                "completed": e.completed_scenarios,
+                "failed": e.failed_scenarios,
+            }
+            for eid, e in executions.items()
+        ]
+    }
+
+
+@router.get("/{execution_id}", response_model=TestResult)
+async def get_execution(execution_id: str, _user: CurrentUser) -> TestResult:
+    if len(execution_id) > _MAX_ID_LEN:
+        raise HTTPException(status_code=400, detail="execution_id too long")
+    result = await store.get_execution(execution_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Execution not found")
+    return result
