@@ -1,3 +1,8 @@
+# Licensed under the Business Source License 1.1 (BSL 1.1)
+# See LICENSE.BSL for details. Change Date: 2029-04-30
+# Use of this file in production requires a valid commercial license
+# unless your organization qualifies under the Additional Use Grant.
+
 """Distributed execution engine for scaling chaos tests across multiple workers.
 
 Implements a Master-Worker architecture with:

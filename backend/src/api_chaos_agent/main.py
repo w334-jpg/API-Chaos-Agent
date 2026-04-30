@@ -32,6 +32,7 @@ from api_chaos_agent.core.security import create_access_token
 from api_chaos_agent.routers import schema, scenarios, execution, reports
 from api_chaos_agent.routers import schemas_v2, distributed, plugins, cicd, tenants, analytics
 from api_chaos_agent.routers import plans
+from api_chaos_agent.routers import license as license_router
 from api_chaos_agent.services.store import store
 
 logger = get_logger(__name__)
@@ -119,6 +120,7 @@ app.include_router(cicd.router)
 app.include_router(tenants.router)
 app.include_router(analytics.router)
 app.include_router(plans.router)
+app.include_router(license_router.router)
 
 
 _ws_connections: list[WebSocket] = []
