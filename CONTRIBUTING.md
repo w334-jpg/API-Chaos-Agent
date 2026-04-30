@@ -122,7 +122,13 @@ Place shared type definitions in `shared/types/` so both frontend and backend ca
 tests/
 ├── test_phase1_node.py          # Unit tests for individual modules
 ├── test_phase2_block.py         # Integration tests for functional blocks
-└── test_phase3_comprehensive.py # End-to-end tests
+├── test_phase3_comprehensive.py # End-to-end tests
+├── unit/                        # Additional unit test modules
+│   ├── test_security_modules.py
+│   ├── test_postman_adapter.py
+│   ├── test_report_exporter.py
+│   └── test_llm_router.py
+└── integration/                 # Additional integration tests
 ```
 
 ### Test Requirements

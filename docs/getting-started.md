@@ -20,7 +20,7 @@ This is the simplest way to get started. Docker handles all dependencies automat
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/api-chaos-agent.git
+git clone https://github.com/w334-jpg/API-Chaos-Agent.git
 cd api-chaos-agent
 
 # Configure environment
@@ -230,6 +230,6 @@ docker system prune
 
 ### Getting Help
 
-- [GitHub Issues](https://github.com/your-org/api-chaos-agent/issues) for bug reports
-- [GitHub Discussions](https://github.com/your-org/api-chaos-agent/discussions) for questions
+- [GitHub Issues](https://github.com/w334-jpg/API-Chaos-Agent/issues) for bug reports
+- [GitHub Discussions](https://github.com/w334-jpg/API-Chaos-Agent/discussions) for questions
 - [API Documentation](api.md) for endpoint details

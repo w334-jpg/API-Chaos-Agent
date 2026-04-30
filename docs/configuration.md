@@ -36,7 +36,7 @@ All configuration is managed through environment variables with sensible default
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AUTH_ENABLED` | `false` | Enable JWT authentication |
-| `AUTH_SECRET_KEY` | `change-me-in-production...` | JWT signing key |
+| `AUTH_SECRET_KEY` | `change-me-in-production-use-a-strong-key` | JWT signing key |
 | `AUTH_ALGORITHM` | `HS256` | JWT algorithm |
 | `AUTH_ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Token expiry time |
 
@@ -86,7 +86,7 @@ When using Docker Compose, set variables in the `environment` section of `docker
 # .env
 OPENAI_API_KEY=sk-your-key
 ANTHROPIC_API_KEY=sk-ant-your-key
-JWT_SECRET=your-production-secret
+AUTH_SECRET_KEY=your-production-secret
 ```
 
 ## Production Checklist
