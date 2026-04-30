@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "api-chaos-agent"
-version = "1.0.0"
-description = "Chaos testing platform for REST APIs"
+version = "2.0.0"
+description = "Chaos testing platform for REST, gRPC, and GraphQL APIs"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "Apache-2.0"}
 authors = [{name = "API Chaos Agent Team"}]
-keywords = ["chaos", "testing", "api", "rest", "fastapi"]
+keywords = ["chaos", "testing", "api", "rest", "grpc", "graphql", "fastapi"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Framework :: FastAPI",

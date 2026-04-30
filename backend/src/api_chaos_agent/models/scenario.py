@@ -13,6 +13,11 @@ class ChaosScenarioType(str, Enum):
     ERROR_STATUS = "error_status"
     REQUEST_TAMPERING = "request_tampering"
     RATE_LIMIT = "rate_limit"
+    RESOURCE_EXHAUSTION = "resource_exhaustion"
+    DATA_CORRUPTION = "data_corruption"
+    DEPENDENCY_FAILURE = "dependency_failure"
+    NETWORK_PARTITION = "network_partition"
+    CUSTOM_PLUGIN = "custom_plugin"
 
 
 class Severity(str, Enum):

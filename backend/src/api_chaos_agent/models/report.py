@@ -80,6 +80,7 @@ class Report(BaseModel):
     generated_at: datetime = Field(default_factory=datetime.now)
     total_scenarios: int = 0
     vulnerabilities_found: int = 0
+    execution_time_ms: float = 0.0
     severity_summary: dict[str, int] = Field(default_factory=dict)
     findings: list[Finding] = Field(default_factory=list)
     test_result: TestResult | None = None

@@ -30,6 +30,8 @@ from api_chaos_agent.core.logging import setup_logging, get_logger
 from api_chaos_agent.core.rate_limit import RateLimitMiddleware
 from api_chaos_agent.core.security import create_access_token
 from api_chaos_agent.routers import schema, scenarios, execution, reports
+from api_chaos_agent.routers import schemas_v2, distributed, plugins, cicd, tenants, analytics
+from api_chaos_agent.routers import plans
 from api_chaos_agent.services.store import store
 
 logger = get_logger(__name__)
@@ -88,8 +90,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 app = FastAPI(
     title="API Chaos Agent",
-    description="Chaos testing platform for REST APIs",
-    version="1.0.0",
+    description="Chaos testing platform for REST, gRPC, and GraphQL APIs",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -110,6 +112,13 @@ app.include_router(schema.router)
 app.include_router(scenarios.router)
 app.include_router(execution.router)
 app.include_router(reports.router)
+app.include_router(schemas_v2.router)
+app.include_router(distributed.router)
+app.include_router(plugins.router)
+app.include_router(cicd.router)
+app.include_router(tenants.router)
+app.include_router(analytics.router)
+app.include_router(plans.router)
 
 
 _ws_connections: list[WebSocket] = []

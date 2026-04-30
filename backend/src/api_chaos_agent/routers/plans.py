@@ -1,0 +1,65 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, HTTPException
+
+from api_chaos_agent.core.feature_gates import (
+    FEATURE_GATES,
+    PLAN_QUOTAS,
+    check_quota,
+    get_features_for_plan,
+    get_quota_for_plan,
+    is_feature_available,
+)
+from api_chaos_agent.models.tenant import TenantPlan
+
+router = APIRouter(prefix="/plans", tags=["plans"])
+
+
+@router.get("/features")
+async def list_features(plan: str = "free"):
+    try:
+        tenant_plan = TenantPlan(plan)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid plan: {plan}")
+    return {
+        "plan": plan,
+        "features": get_features_for_plan(tenant_plan),
+        "quota": get_quota_for_plan(tenant_plan).model_dump(),
+    }
+
+
+@router.get("/compare")
+async def compare_plans():
+    result = {}
+    for plan in TenantPlan:
+        result[plan.value] = {
+            "features": get_features_for_plan(plan),
+            "quota": get_quota_for_plan(plan).model_dump(),
+        }
+    return result
+
+
+@router.get("/check-feature")
+async def check_feature(feature: str, plan: str = "free"):
+    try:
+        tenant_plan = TenantPlan(plan)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid plan: {plan}")
+    return {
+        "feature": feature,
+        "plan": plan,
+        "available": is_feature_available(tenant_plan, feature),
+    }
+
+
+@router.get("/check-quota")
+async def check_quota_endpoint(resource: str, current_usage: int, plan: str = "free"):
+    try:
+        tenant_plan = TenantPlan(plan)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid plan: {plan}")
+    return {
+        "resource": resource,
+        "plan": plan,
+        "within_limit": check_quota(tenant_plan, resource, current_usage),
+    }
