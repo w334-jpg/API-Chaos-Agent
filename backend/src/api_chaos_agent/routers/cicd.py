@@ -19,6 +19,8 @@ _service = CiCdService()
 
 @router.post("/pipelines", response_model=Pipeline)
 async def create_pipeline(name: str, provider: CiCdProvider, config: PipelineConfig, tenant_id: str = ""):
+    if not name or not name.strip():
+        raise HTTPException(status_code=422, detail="Pipeline name must not be empty")
     return _service.create_pipeline(name=name, config=config, tenant_id=tenant_id)
 
 

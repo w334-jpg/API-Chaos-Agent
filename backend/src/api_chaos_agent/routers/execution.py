@@ -39,6 +39,8 @@ async def create_execution(
 ) -> dict:
     if not scenario_ids:
         raise HTTPException(status_code=400, detail="scenario_ids must be a non-empty list")
+    if concurrency < 1:
+        raise HTTPException(status_code=400, detail="concurrency must be at least 1")
     for sid in scenario_ids:
         if not isinstance(sid, str):
             raise HTTPException(status_code=400, detail="Each scenario_id must be a string")

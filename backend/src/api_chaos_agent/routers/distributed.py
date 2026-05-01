@@ -23,6 +23,8 @@ _engine = DistributedExecutionEngine()
 
 @router.post("/workers/register", response_model=Worker)
 async def register_worker(name: str = "", max_concurrency: int = 100, region: str = "default"):
+    if not name or not name.strip():
+        raise HTTPException(status_code=422, detail="Worker name must not be empty")
     caps = WorkerCapabilities(max_concurrency=max_concurrency, region=region)
     return _engine.registry.register(name=name, capabilities=caps)
 

@@ -49,8 +49,16 @@ async def disable_plugin(plugin_name: str):
 @router.post("/{plugin_name}/execute", response_model=FaultPluginExecution)
 async def execute_plugin(plugin_name: str, scenario_id: str, config: dict[str, Any] | None = None):
     from api_chaos_agent.models.scenario import ChaosScenario, ChaosScenarioType
-    scenario = ChaosScenario(id=scenario_id, name=f"plugin-{plugin_name}", scenario_type=ChaosScenarioType.CUSTOM_PLUGIN)
+    from api_chaos_agent.models.schema import Endpoint, HttpMethod
+    scenario = ChaosScenario(
+        id=scenario_id,
+        name=f"plugin-{plugin_name}",
+        scenario_type=ChaosScenarioType.CUSTOM_PLUGIN,
+        endpoint=Endpoint(path="/plugin/execute", method=HttpMethod.POST),
+    )
     result = await _manager.execute(plugin_name, scenario, config or {})
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.error or "Plugin execution failed")
     return result
 
 

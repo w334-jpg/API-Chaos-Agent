@@ -156,9 +156,9 @@ class GraphQLSchemaParser:
 
     def _extract_operations(self, text: str) -> list[GraphQLOperation]:
         operations: list[GraphQLOperation] = []
-        for op_type_def in [("type Query", GraphQLOperationType.QUERY), ("type Mutation", GraphQLOperationType.MUTATION), ("type Subscription", GraphQLOperationType.SUBSCRIPTION)]:
+        for op_type_def in [("Query", GraphQLOperationType.QUERY), ("Mutation", GraphQLOperationType.MUTATION), ("Subscription", GraphQLOperationType.SUBSCRIPTION)]:
             keyword, op_type = op_type_def
-            pattern = re.compile(rf'{re.escape(keyword)}\s*(?:\w+\s*)?\{{([^}}]*)\}}', re.DOTALL)
+            pattern = re.compile(rf'type\s+{re.escape(keyword)}\s*(?:\w+\s*)?\{{([^}}]*)\}}', re.DOTALL)
             for match in pattern.finditer(text):
                 body = match.group(1)
                 fields = self._extract_fields(body)

@@ -14,8 +14,8 @@ Provides:
 
 from __future__ import annotations
 
-import time
 import uuid
+from datetime import datetime
 from typing import Any
 
 from api_chaos_agent.core.logging import get_logger
@@ -82,7 +82,7 @@ class TenantService:
             return None
         tenant.plan = plan
         tenant.quota = _PLAN_QUOTAS.get(plan, TenantQuota()).model_copy()
-        tenant.updated_at = time.monotonic()
+        tenant.updated_at = datetime.now()
         logger.info("tenant_plan_updated", tenant_id=tenant_id, plan=plan.value)
         return tenant
 

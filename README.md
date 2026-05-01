@@ -6,7 +6,7 @@
 
 [English](#english) | [中文](#中文)
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0%20%7C%20BSL%201.1-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.11+-green.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev)
@@ -231,7 +231,27 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 ## License
 
-This project is licensed under the [Apache License 2.0](LICENSE).
+This project uses a **dual licensing** model:
+
+| Component | License | Notes |
+|-----------|---------|-------|
+| **Community Edition** (core features) | [Apache License 2.0](LICENSE) | Free for all use cases |
+| **Professional & Enterprise Edition** (advanced features) | [Business Source License 1.1](LICENSE.BSL) | Source-available, production use requires commercial license |
+
+### BSL 1.1 Additional Use Grant
+
+The Professional & Enterprise features (gRPC/GraphQL, distributed execution, plugin framework, CI/CD integration, multi-tenancy, advanced analytics) are available under BSL 1.1 with the following exceptions — you may use them in production **without** a commercial license if:
+
+- Your organization has **< 50 employees** AND **< $1M annual revenue**
+- You are a **non-profit organization**
+- You are using it for **academic research or education**
+- You are **evaluating** the software (up to 90 days)
+
+For all other production use cases, please obtain a commercial license:
+- **Professional**: $299/month — contact license@api-chaos-agent.dev
+- **Enterprise**: Custom pricing — contact license@api-chaos-agent.dev
+
+The BSL 1.1 code will automatically convert to Apache 2.0 on **2029-04-30** (Change Date).
 
 ---
 
@@ -451,4 +471,24 @@ api-chaos-agent/
 
 ## 许可证
 
-本项目基于 [Apache License 2.0](LICENSE) 开源。
+本项目采用**双许可证**模式：
+
+| 组件 | 许可证 | 说明 |
+|------|--------|------|
+| **社区版**（核心功能） | [Apache License 2.0](LICENSE) | 所有用途免费 |
+| **专业版 & 企业版**（高级功能） | [Business Source License 1.1](LICENSE.BSL) | 源码可见，生产使用需商业许可 |
+
+### BSL 1.1 额外使用授权
+
+专业版和企业版功能（gRPC/GraphQL、分布式执行、插件框架、CI/CD 集成、多租户、高级分析）在 BSL 1.1 下提供，以下情况可**免费**用于生产环境：
+
+- 组织**少于 50 人**且**年收入低于 100 万美元**
+- **非营利组织**
+- **学术研究或教育用途**
+- **评估期**（最长 90 天）
+
+其他生产用途请获取商业许可：
+- **专业版**：¥299/月 — 联系 license@api-chaos-agent.dev
+- **企业版**：定制价格 — 联系 license@api-chaos-agent.dev
+
+BSL 1.1 代码将在 **2029-04-30**（变更日期）自动转为 Apache 2.0 许可。

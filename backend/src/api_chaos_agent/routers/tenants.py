@@ -25,6 +25,8 @@ _service = TenantService()
 
 @router.post("", response_model=Tenant)
 async def create_tenant(name: str, plan: TenantPlan = TenantPlan.FREE):
+    if not name or not name.strip():
+        raise HTTPException(status_code=422, detail="Tenant name must not be empty")
     return _service.create_tenant(name=name, plan=plan)
 
 

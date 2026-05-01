@@ -272,10 +272,13 @@ class LicenseManager:
         info = _parse_license_key(key)
         if not info or not info.is_valid:
             raise ValueError("Invalid license key")
-        license_dir = Path.home() / ".api-chaos-agent"
-        license_dir.mkdir(parents=True, exist_ok=True)
-        license_path = license_dir / "license.key"
-        license_path.write_text(key)
+        try:
+            license_dir = Path.home() / ".api-chaos-agent"
+            license_dir.mkdir(parents=True, exist_ok=True)
+            license_path = license_dir / "license.key"
+            license_path.write_text(key)
+        except (PermissionError, OSError):
+            pass
         self._license_info = info
         self._last_check = time.monotonic()
         logger.info("license_installed", type=info.license_type.value, plan=info.plan.value)

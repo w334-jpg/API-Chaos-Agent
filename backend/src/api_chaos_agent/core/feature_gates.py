@@ -45,6 +45,13 @@ def is_feature_available(plan: TenantPlan | str, feature: str) -> bool:
     return gates.get(plan_str, False)
 
 
+_PLAN_HIERARCHY: dict[TenantPlan, int] = {
+    TenantPlan.FREE: 0,
+    TenantPlan.PRO: 1,
+    TenantPlan.ENTERPRISE: 2,
+}
+
+
 def require_plan(*allowed_plans: TenantPlan):
     def decorator(func: Callable) -> Callable:
         @wraps(func)
@@ -57,7 +64,9 @@ def require_plan(*allowed_plans: TenantPlan):
                         break
             if tenant is None:
                 raise HTTPException(status_code=401, detail="Tenant context required")
-            if tenant.plan not in allowed_plans:
+            min_level = min(_PLAN_HIERARCHY.get(p, 0) for p in allowed_plans)
+            tenant_level = _PLAN_HIERARCHY.get(tenant.plan, 0)
+            if tenant_level < min_level:
                 allowed_names = ", ".join(p.value for p in allowed_plans)
                 raise HTTPException(
                     status_code=403,

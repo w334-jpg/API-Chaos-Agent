@@ -62,7 +62,7 @@ class WorkerRegistry:
 
     def heartbeat(self, worker_id: str) -> bool:
         if worker_id in self._workers:
-            self._workers[worker_id].last_heartbeat = time.monotonic()
+            self._workers[worker_id].last_heartbeat = datetime.now()
             if self._workers[worker_id].status == WorkerStatus.OFFLINE:
                 self._workers[worker_id].status = WorkerStatus.IDLE
             return True
