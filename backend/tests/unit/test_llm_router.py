@@ -6,31 +6,44 @@ import json
 
 import pytest
 
-from api_chaos_agent.services.llm_router import LLMRouter, TaskComplexity, CircuitBreaker
+from api_chaos_agent.services.llm_router import CircuitBreaker, LLMRouter, TaskComplexity
 
 
 @pytest.fixture
 def router() -> LLMRouter:
-    return LLMRouter(config={
-        "openai_api_key": "",
-        "anthropic_api_key": "",
-        "ollama_base_url": "http://localhost:99999",
-    })
+    return LLMRouter(
+        config={
+            "openai_api_key": "",
+            "anthropic_api_key": "",
+            "ollama_base_url": "http://localhost:99999",
+        }
+    )
 
 
 def test_classify_simple(router: LLMRouter) -> None:
-    assert router.classify_complexity("change field type of name to integer") == TaskComplexity.SIMPLE
+    assert (
+        router.classify_complexity("change field type of name to integer") == TaskComplexity.SIMPLE
+    )
     assert router.classify_complexity("boundary value test for age") == TaskComplexity.SIMPLE
     assert router.classify_complexity("replace with null") == TaskComplexity.SIMPLE
 
 
 def test_classify_complex(router: LLMRouter) -> None:
-    assert router.classify_complexity("design a multi-step chained attack scenario") == TaskComplexity.COMPLEX
-    assert router.classify_complexity("analyze authentication bypass vulnerability") == TaskComplexity.COMPLEX
+    assert (
+        router.classify_complexity("design a multi-step chained attack scenario")
+        == TaskComplexity.COMPLEX
+    )
+    assert (
+        router.classify_complexity("analyze authentication bypass vulnerability")
+        == TaskComplexity.COMPLEX
+    )
 
 
 def test_classify_medium(router: LLMRouter) -> None:
-    assert router.classify_complexity("generate a latency test for /api/users") == TaskComplexity.MEDIUM
+    assert (
+        router.classify_complexity("generate a latency test for /api/users")
+        == TaskComplexity.MEDIUM
+    )
 
 
 @pytest.mark.asyncio
@@ -94,6 +107,7 @@ def test_circuit_breaker() -> None:
     assert not cb.is_available()
 
     import time
+
     time.sleep(0.15)
     assert cb.state == "half-open"
     assert cb.is_available()
@@ -109,6 +123,7 @@ def test_circuit_breaker_reset() -> None:
     assert cb.state == "open"
 
     import time
+
     time.sleep(0.1)
     assert cb.state == "half-open"
 

@@ -20,21 +20,19 @@ import os
 import threading
 import time
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
-import httpx
 
-from api_chaos_agent.main import app
 from api_chaos_agent.core.license import (
-    LicenseManager,
     _LICENSE_FILE_PATHS,
-    generate_trial_license,
+    LicenseManager,
     _generate_signature,
+    generate_trial_license,
 )
-from api_chaos_agent.models.tenant import TenantPlan
-from api_chaos_agent.routers.execution import set_mock_transport
-from api_chaos_agent.services.execution_engine import ExecutionEngine
+from api_chaos_agent.main import app
 from api_chaos_agent.models.report import ExecutionStatus, ResponseData, ScenarioResult
+from api_chaos_agent.services.execution_engine import ExecutionEngine
 
 
 def _mock_handler(request: httpx.Request) -> httpx.Response:
@@ -62,6 +60,7 @@ async def _mock_execute(self, scenarios):
         sr.details = "Mocked execution"
         results.append(sr)
     from api_chaos_agent.models.report import TestResult
+
     tr = TestResult(total_scenarios=len(scenarios), config=self._config)
     tr.results = results
     tr.completed_scenarios = len(results)
@@ -127,12 +126,17 @@ def _upload_openapi(client, title="E2E Test API"):
         "paths": {
             "/users": {
                 "get": {"summary": "List users", "responses": {"200": {"description": "OK"}}},
-                "post": {"summary": "Create user", "responses": {"201": {"description": "Created"}}},
+                "post": {
+                    "summary": "Create user",
+                    "responses": {"201": {"description": "Created"}},
+                },
             },
             "/users/{id}": {
                 "get": {
                     "summary": "Get user",
-                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "parameters": [
+                        {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
+                    ],
                     "responses": {"200": {"description": "OK"}},
                 },
             },
@@ -152,7 +156,6 @@ def _get_schema_id(upload_resp):
 
 
 class TestE2ESchemaLifecycle:
-
     def test_openapi_schema_full_lifecycle(self, client):
         upload_resp = _upload_openapi(client)
         assert upload_resp.status_code == 200
@@ -164,7 +167,7 @@ class TestE2ESchemaLifecycle:
         assert list_resp.status_code == 200
 
     def test_grpc_schema_full_lifecycle(self, client):
-        proto_content = b'''
+        proto_content = b"""
 syntax = "proto3";
 package e2e;
 service UserService {
@@ -175,7 +178,7 @@ message GetUserRequest { string user_id = 1; }
 message User { string id = 1; string name = 2; }
 message ListUsersRequest { int32 page = 1; }
 message UserList { repeated User users = 1; }
-'''
+"""
         resp = client.post(
             "/api/v2/schemas/parse/grpc",
             files={"file": ("user.proto", io.BytesIO(proto_content), "text/plain")},
@@ -189,7 +192,7 @@ message UserList { repeated User users = 1; }
         assert len(svc["methods"]) >= 2
 
     def test_graphql_schema_full_lifecycle(self, client):
-        graphql_content = b'''
+        graphql_content = b"""
 type Query {
     user(id: ID!): User
     users: [User]
@@ -198,7 +201,7 @@ type Mutation {
     createUser(name: String!): User
 }
 type User { id: ID! name: String! }
-'''
+"""
         resp = client.post(
             "/api/v2/schemas/parse/graphql",
             files={"file": ("schema.graphql", io.BytesIO(graphql_content), "text/plain")},
@@ -210,7 +213,6 @@ type User { id: ID! name: String! }
 
 
 class TestE2EScenarioAndExecution:
-
     def test_scenario_generate_and_list(self, client):
         upload_resp = _upload_openapi(client, "Scenario Test API")
         schema_id = _get_schema_id(upload_resp)
@@ -227,7 +229,11 @@ class TestE2EScenarioAndExecution:
         if scenario_ids:
             exec_resp = client.post(
                 "/api/executions/",
-                params={"scenario_ids": scenario_ids, "base_url": "http://test.local", "concurrency": 5},
+                params={
+                    "scenario_ids": scenario_ids,
+                    "base_url": "http://test.local",
+                    "concurrency": 5,
+                },
             )
             assert exec_resp.status_code == 200
         list_resp = client.get("/api/executions/")
@@ -235,7 +241,6 @@ class TestE2EScenarioAndExecution:
 
 
 class TestE2EReportAndAnalytics:
-
     def test_report_generation(self, client):
         upload_resp = _upload_openapi(client, "Report Test API")
         schema_id = _get_schema_id(upload_resp)
@@ -244,7 +249,11 @@ class TestE2EReportAndAnalytics:
         if scenario_ids:
             exec_resp = client.post(
                 "/api/executions/",
-                params={"scenario_ids": scenario_ids, "base_url": "http://test.local", "concurrency": 5},
+                params={
+                    "scenario_ids": scenario_ids,
+                    "base_url": "http://test.local",
+                    "concurrency": 5,
+                },
             )
             exec_id = exec_resp.json().get("execution_id") or exec_resp.json().get("id")
             if exec_id:
@@ -261,7 +270,6 @@ class TestE2EReportAndAnalytics:
 
 
 class TestE2EDistributedExecution:
-
     def test_worker_lifecycle(self, client):
         register_resp = client.post(
             "/api/v2/distributed/workers/register",
@@ -278,11 +286,14 @@ class TestE2EDistributedExecution:
 
 
 class TestE2ECiCdIntegration:
-
     def test_pipeline_lifecycle(self, client):
         create_resp = client.post(
             "/api/v2/cicd/pipelines",
-            params={"name": "e2e-pipeline", "provider": "github_actions", "tenant_id": "e2e-tenant"},
+            params={
+                "name": "e2e-pipeline",
+                "provider": "github_actions",
+                "tenant_id": "e2e-tenant",
+            },
             json={
                 "provider": "github_actions",
                 "project_url": "https://github.com/test/repo",
@@ -307,7 +318,6 @@ class TestE2ECiCdIntegration:
 
 
 class TestE2EMultiTenancy:
-
     def test_tenant_full_lifecycle(self, client):
         create_resp = client.post("/api/v2/tenants", params={"name": "E2EOrg", "plan": "pro"})
         assert create_resp.status_code == 200
@@ -315,7 +325,9 @@ class TestE2EMultiTenancy:
         assert create_resp.json()["plan"] == "pro"
         get_resp = client.get(f"/api/v2/tenants/{tenant_id}")
         assert get_resp.status_code == 200
-        upgrade_resp = client.put(f"/api/v2/tenants/{tenant_id}/plan", params={"plan": "enterprise"})
+        upgrade_resp = client.put(
+            f"/api/v2/tenants/{tenant_id}/plan", params={"plan": "enterprise"}
+        )
         assert upgrade_resp.status_code == 200
         assert upgrade_resp.json()["plan"] == "enterprise"
         member_resp = client.post(
@@ -337,7 +349,6 @@ class TestE2EMultiTenancy:
 
 
 class TestE2ELicenseAndFeatureGates:
-
     def test_license_install_enables_features(self, client):
         key = _make_license_key("commercial_pro", "pro")
         install_resp = client.post("/license/install", params={"key": key})
@@ -383,7 +394,6 @@ class TestE2ELicenseAndFeatureGates:
 
 
 class TestE2EPlanComparison:
-
     def test_plan_comparison_complete(self, client):
         compare_resp = client.get("/plans/compare")
         assert compare_resp.status_code == 200
@@ -401,12 +411,14 @@ class TestE2EPlanComparison:
 
     def test_quota_check_all_plans(self, client):
         for plan in ["free", "pro", "enterprise"]:
-            resp = client.get("/plans/check-quota", params={"resource": "schemas", "current_usage": 5, "plan": plan})
+            resp = client.get(
+                "/plans/check-quota",
+                params={"resource": "schemas", "current_usage": 5, "plan": plan},
+            )
             assert resp.status_code == 200
 
 
 class TestE2EHealthAndSystem:
-
     def test_health_endpoints(self, client):
         assert client.get("/health").status_code == 200
         assert client.get("/health/ready").status_code == 200
@@ -419,7 +431,6 @@ class TestE2EHealthAndSystem:
 
 
 class TestE2ECrossModuleFlow:
-
     def test_tenant_to_analytics_flow(self, client):
         tenant_resp = client.post("/api/v2/tenants", params={"name": "CrossModOrg", "plan": "pro"})
         tenant_id = tenant_resp.json()["id"]
@@ -430,9 +441,13 @@ class TestE2ECrossModuleFlow:
     def test_license_to_tenant_to_quota_flow(self, client):
         key = _make_license_key("commercial_pro", "pro")
         client.post("/license/install", params={"key": key})
-        tenant_resp = client.post("/api/v2/tenants", params={"name": "LicenseQuotaOrg", "plan": "pro"})
+        tenant_resp = client.post(
+            "/api/v2/tenants", params={"name": "LicenseQuotaOrg", "plan": "pro"}
+        )
         tenant_id = tenant_resp.json()["id"]
-        quota_resp = client.get(f"/api/v2/tenants/{tenant_id}/quota", params={"resource": "schemas", "current": 50})
+        quota_resp = client.get(
+            f"/api/v2/tenants/{tenant_id}/quota", params={"resource": "schemas", "current": 50}
+        )
         assert quota_resp.status_code == 200
         assert quota_resp.json()["allowed"] is True
 
@@ -444,7 +459,11 @@ class TestE2ECrossModuleFlow:
         worker_id = worker_resp.json()["id"]
         pipeline_resp = client.post(
             "/api/v2/cicd/pipelines",
-            params={"name": "dist-pipeline", "provider": "github_actions", "tenant_id": "e2e-tenant"},
+            params={
+                "name": "dist-pipeline",
+                "provider": "github_actions",
+                "tenant_id": "e2e-tenant",
+            },
             json={
                 "provider": "github_actions",
                 "project_url": "https://github.com/test/repo",
@@ -465,17 +484,22 @@ class TestE2ECrossModuleFlow:
 
 
 class TestE2EStress:
-
     def test_concurrent_schema_uploads(self, client):
         errors = []
 
         def upload_schema(idx):
             try:
-                spec = {"openapi": "3.0.0", "info": {"title": f"Stress {idx}", "version": "1.0"}, "paths": {}}
+                spec = {
+                    "openapi": "3.0.0",
+                    "info": {"title": f"Stress {idx}", "version": "1.0"},
+                    "paths": {},
+                }
                 spec_bytes = json.dumps(spec).encode()
                 resp = client.post(
                     "/api/schemas/upload",
-                    files={"file": (f"stress-{idx}.json", io.BytesIO(spec_bytes), "application/json")},
+                    files={
+                        "file": (f"stress-{idx}.json", io.BytesIO(spec_bytes), "application/json")
+                    },
                 )
                 assert resp.status_code == 200
             except Exception as e:
@@ -508,7 +532,9 @@ class TestE2EStress:
     def test_rapid_feature_checks(self, client):
         start = time.monotonic()
         for _ in range(200):
-            resp = client.get("/plans/check-feature", params={"feature": "distributed_execution", "plan": "pro"})
+            resp = client.get(
+                "/plans/check-feature", params={"feature": "distributed_execution", "plan": "pro"}
+            )
             assert resp.status_code == 200
         elapsed = time.monotonic() - start
         assert elapsed < 15.0, f"200 feature checks took {elapsed:.2f}s"

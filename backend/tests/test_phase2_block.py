@@ -11,7 +11,6 @@ Block groupings:
 
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import pathlib
@@ -20,15 +19,11 @@ import time
 
 import httpx
 import pytest
-import pytest_asyncio
 
 from api_chaos_agent.core.config import settings
 from api_chaos_agent.core.security import create_access_token, get_current_user
 from api_chaos_agent.models.report import (
     ExecutionConfig,
-    ExecutionStatus,
-    Report,
-    ResponseData,
     ScenarioResult,
     Severity,
     TestResult,
@@ -36,17 +31,6 @@ from api_chaos_agent.models.report import (
 from api_chaos_agent.models.scenario import (
     ChaosScenario,
     ChaosScenarioType,
-    ErrorStatusConfig,
-    LatencyConfig,
-    TamperingConfig,
-)
-from api_chaos_agent.models.schema import (
-    APISpec,
-    Endpoint,
-    FieldConstraint,
-    FieldType,
-    HttpMethod,
-    RequestBody,
 )
 from api_chaos_agent.models.schema import (
     APISpec,
@@ -301,13 +285,18 @@ class TestExecutionPipeline:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test.db")
             store = SQLiteStore(db_path=db_path)
-            config = ExecutionConfig(base_url="http://testserver", concurrency=2, timeout_seconds=5.0)
+            config = ExecutionConfig(
+                base_url="http://testserver", concurrency=2, timeout_seconds=5.0
+            )
             engine = ExecutionEngine(config=config, transport=MOCK_TRANSPORT)
 
             scenarios = [
                 _make_scenario(ChaosScenarioType.ERROR_STATUS, config={"status_code": 500}),
                 _make_scenario(ChaosScenarioType.LATENCY, config={"delay_ms": 10}),
-                _make_scenario(ChaosScenarioType.RATE_LIMIT, config={"requests_per_second": 2, "duration_seconds": 1}),
+                _make_scenario(
+                    ChaosScenarioType.RATE_LIMIT,
+                    config={"requests_per_second": 2, "duration_seconds": 1},
+                ),
             ]
             result = await engine.execute(scenarios)
             exec_id = await store.save_execution(result)

@@ -80,6 +80,7 @@ select = ["E", "F", "I", "N", "W", "UP"]
 "src/api_chaos_agent/services/grpc_graphql_parser.py" = ["E501"]
 "src/api_chaos_agent/services/plugin_framework.py" = ["E501"]
 "src/api_chaos_agent/routers/reports.py" = ["E501"]
+"tests/**" = ["E501", "N806", "N814", "E402"]
 
 [tool.mypy]
 python_version = "3.11"

@@ -8,15 +8,14 @@ Validates:
 - Multi-tenant isolation in integrated workflows
 """
 
-import pytest
 import time
 from datetime import datetime
 
 from api_chaos_agent.models.analytics import TrendPeriod
-from api_chaos_agent.models.cicd import CiCdProvider, PipelineConfig, Pipeline
-from api_chaos_agent.models.report import Report, Finding, ReportSummary
+from api_chaos_agent.models.cicd import CiCdProvider, PipelineConfig
+from api_chaos_agent.models.report import Finding, Report, ReportSummary
 from api_chaos_agent.models.scenario import Severity
-from api_chaos_agent.models.tenant import TenantPlan, TeamMemberRole
+from api_chaos_agent.models.tenant import TeamMemberRole, TenantPlan
 from api_chaos_agent.services.analytics_service import AnalyticsService
 from api_chaos_agent.services.cicd_service import CiCdService
 from api_chaos_agent.services.tenant_service import TenantService
@@ -56,7 +55,7 @@ def _make_report(
                     recommendation="Review and fix",
                 )
             )
-    rid = report_id or f"report-{int(time.monotonic()*1e6)}"
+    rid = report_id or f"report-{int(time.monotonic() * 1e6)}"
     return Report(
         id=rid,
         schema_id="test-schema",
@@ -112,7 +111,8 @@ class TestTenantCicdIntegration:
         run = self.cicd_svc.trigger_run(pipeline.id)
         assert run.status == "running"
         completed = self.cicd_svc.complete_run(
-            run.id, pipeline.id,
+            run.id,
+            pipeline.id,
             report_id="r-001",
             vulnerabilities=3,
             max_severity="high",
@@ -142,10 +142,12 @@ class TestTenantAnalyticsIntegration:
 
     def test_store_and_summarize_per_tenant(self):
         tenant = self.tenant_svc.create_tenant("Analytics Org", plan=TenantPlan.PRO)
-        report = _make_report([
-            {"severity": "critical", "path": "/api/users"},
-            {"severity": "high", "path": "/api/orders"},
-        ])
+        report = _make_report(
+            [
+                {"severity": "critical", "path": "/api/users"},
+                {"severity": "high", "path": "/api/orders"},
+            ]
+        )
         self.analytics_svc.store_report(tenant.id, report)
         summary = self.analytics_svc.get_summary(tenant.id)
         assert summary.total_executions == 1
@@ -175,13 +177,19 @@ class TestTenantAnalyticsIntegration:
         assert "low" not in s1.severity_distribution
 
     def test_analytics_comparison_within_tenant(self):
-        tenant = self.tenant_svc.create_tenant("Compare Org", plan=TenantPlan.PRO)
-        baseline = _make_report([
-            {"severity": "critical", "path": "/api/pay", "type": "t1"},
-        ], report_id="baseline")
-        current = _make_report([
-            {"severity": "low", "path": "/api/pay", "type": "t1"},
-        ], report_id="current")
+        self.tenant_svc.create_tenant("Compare Org", plan=TenantPlan.PRO)
+        baseline = _make_report(
+            [
+                {"severity": "critical", "path": "/api/pay", "type": "t1"},
+            ],
+            report_id="baseline",
+        )
+        current = _make_report(
+            [
+                {"severity": "low", "path": "/api/pay", "type": "t1"},
+            ],
+            report_id="current",
+        )
         result = self.analytics_svc.compare_reports(baseline, current)
         assert result.improved is True
         assert result.risk_score_delta < 0
@@ -198,11 +206,15 @@ class TestCicdAnalyticsIntegration:
         config = _make_config()
         pipeline = self.cicd_svc.create_pipeline("analytics-pipeline", config)
         run = self.cicd_svc.trigger_run(pipeline.id)
-        report = _make_report([
-            {"severity": "high", "path": "/api/test"},
-        ], report_id=f"report-{run.id}")
+        report = _make_report(
+            [
+                {"severity": "high", "path": "/api/test"},
+            ],
+            report_id=f"report-{run.id}",
+        )
         self.cicd_svc.complete_run(
-            run.id, pipeline.id,
+            run.id,
+            pipeline.id,
             report_id=report.id,
             vulnerabilities=1,
             max_severity="high",
@@ -218,11 +230,15 @@ class TestCicdAnalyticsIntegration:
         pipeline = self.cicd_svc.create_pipeline("multi-run", config)
         for i in range(3):
             run = self.cicd_svc.trigger_run(pipeline.id)
-            report = _make_report([
-                {"severity": "high", "path": f"/api/ep{i}"},
-            ], report_id=f"report-{i}")
+            report = _make_report(
+                [
+                    {"severity": "high", "path": f"/api/ep{i}"},
+                ],
+                report_id=f"report-{i}",
+            )
             self.cicd_svc.complete_run(
-                run.id, pipeline.id,
+                run.id,
+                pipeline.id,
                 report_id=report.id,
                 vulnerabilities=1,
                 max_severity="high",
@@ -236,6 +252,7 @@ class TestCicdAnalyticsIntegration:
     def test_github_actions_workflow_includes_analytics_config(self):
         config = _make_config()
         from api_chaos_agent.services.cicd_service import GitHubActionsGenerator
+
         gen = GitHubActionsGenerator()
         yaml_str = gen.generate_workflow(config, "analytics-test")
         assert "chaos-test" in yaml_str
@@ -244,6 +261,7 @@ class TestCicdAnalyticsIntegration:
     def test_gitlab_ci_pipeline_includes_analytics_config(self):
         config = _make_config(CiCdProvider.GITLAB_CI)
         from api_chaos_agent.services.cicd_service import GitLabCIGenerator
+
         gen = GitLabCIGenerator()
         yaml_str = gen.generate_pipeline(config, "analytics-gitlab")
         assert "API Chaos Test" in yaml_str
@@ -266,13 +284,19 @@ class TestFullThreeWayIntegration:
         pipeline = self.cicd_svc.create_pipeline("full-flow", config, tenant_id=tenant.id)
         run = self.cicd_svc.trigger_run(pipeline.id)
 
-        report = _make_report([
-            {"severity": "critical", "path": "/api/users", "type": "latency"},
-            {"severity": "high", "path": "/api/orders", "type": "error_status"},
-            {"severity": "medium", "path": "/api/products", "type": "rate_limit"},
-        ], exec_time_ms=250.0, total_scenarios=20, report_id="full-report")
+        report = _make_report(
+            [
+                {"severity": "critical", "path": "/api/users", "type": "latency"},
+                {"severity": "high", "path": "/api/orders", "type": "error_status"},
+                {"severity": "medium", "path": "/api/products", "type": "rate_limit"},
+            ],
+            exec_time_ms=250.0,
+            total_scenarios=20,
+            report_id="full-report",
+        )
         self.cicd_svc.complete_run(
-            run.id, pipeline.id,
+            run.id,
+            pipeline.id,
             report_id=report.id,
             vulnerabilities=3,
             max_severity="critical",
@@ -293,13 +317,17 @@ class TestFullThreeWayIntegration:
         config = _make_config()
         pipeline = self.cicd_svc.create_pipeline("ent-pipeline", config, tenant_id=tenant.id)
 
-        baseline_report = _make_report([
-            {"severity": "critical", "path": "/api/pay", "type": "t1"},
-            {"severity": "high", "path": "/api/auth", "type": "t2"},
-        ], report_id="baseline")
+        baseline_report = _make_report(
+            [
+                {"severity": "critical", "path": "/api/pay", "type": "t1"},
+                {"severity": "high", "path": "/api/auth", "type": "t2"},
+            ],
+            report_id="baseline",
+        )
         run1 = self.cicd_svc.trigger_run(pipeline.id)
         self.cicd_svc.complete_run(
-            run1.id, pipeline.id,
+            run1.id,
+            pipeline.id,
             report_id=baseline_report.id,
             vulnerabilities=2,
             max_severity="critical",
@@ -307,12 +335,16 @@ class TestFullThreeWayIntegration:
         )
         self.analytics_svc.store_report(tenant.id, baseline_report)
 
-        current_report = _make_report([
-            {"severity": "medium", "path": "/api/pay", "type": "t1"},
-        ], report_id="current")
+        current_report = _make_report(
+            [
+                {"severity": "medium", "path": "/api/pay", "type": "t1"},
+            ],
+            report_id="current",
+        )
         run2 = self.cicd_svc.trigger_run(pipeline.id)
         self.cicd_svc.complete_run(
-            run2.id, pipeline.id,
+            run2.id,
+            pipeline.id,
             report_id=current_report.id,
             vulnerabilities=1,
             max_severity="medium",
@@ -339,8 +371,8 @@ class TestFullThreeWayIntegration:
 
         config1 = _make_config(CiCdProvider.GITHUB_ACTIONS)
         config2 = _make_config(CiCdProvider.GITLAB_CI)
-        p1 = self.cicd_svc.create_pipeline("pipe-a", config1, tenant_id=t1.id)
-        p2 = self.cicd_svc.create_pipeline("pipe-b", config2, tenant_id=t2.id)
+        self.cicd_svc.create_pipeline("pipe-a", config1, tenant_id=t1.id)
+        self.cicd_svc.create_pipeline("pipe-b", config2, tenant_id=t2.id)
 
         r1 = _make_report([{"severity": "critical", "path": "/a"}], report_id="r1")
         r2 = _make_report([{"severity": "low", "path": "/b"}], report_id="r2")
@@ -366,7 +398,8 @@ class TestFullThreeWayIntegration:
         run = self.cicd_svc.trigger_run(pipeline.id)
         report = _make_report([{"severity": "high", "path": "/api/test"}], report_id="team-report")
         self.cicd_svc.complete_run(
-            run.id, pipeline.id,
+            run.id,
+            pipeline.id,
             report_id=report.id,
             vulnerabilities=1,
             max_severity="high",
@@ -398,7 +431,8 @@ class TestFullThreeWayIntegration:
             )
             report.created_at = base_date.replace(day=i + 1)
             self.cicd_svc.complete_run(
-                run.id, pipeline.id,
+                run.id,
+                pipeline.id,
                 report_id=report.id,
                 vulnerabilities=1,
                 max_severity="high",

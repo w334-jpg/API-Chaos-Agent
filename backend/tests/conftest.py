@@ -8,7 +8,7 @@ os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 os.environ.setdefault("AUTH_ENABLED", "false")
 
 import asyncio
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 import pytest
 import pytest_asyncio
@@ -34,4 +34,6 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
 
 @pytest_asyncio.fixture
 def fresh_store() -> InMemoryStore:
-    return InMemoryStore(max_schemas=10, max_scenarios=10, max_executions=10, max_reports=10, ttl_seconds=300)
+    return InMemoryStore(
+        max_schemas=10, max_scenarios=10, max_executions=10, max_reports=10, ttl_seconds=300
+    )

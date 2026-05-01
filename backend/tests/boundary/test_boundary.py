@@ -16,19 +16,16 @@ from __future__ import annotations
 import io
 import json
 import os
-import time
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
-import httpx
 
+from api_chaos_agent.core.feature_gates import TenantPlan, check_quota, get_quota_for_plan
+from api_chaos_agent.core.license import _LICENSE_FILE_PATHS, LicenseManager, _generate_signature
 from api_chaos_agent.main import app
-from api_chaos_agent.core.license import LicenseManager, _LICENSE_FILE_PATHS, _generate_signature
-from api_chaos_agent.core.feature_gates import TenantPlan, get_quota_for_plan, check_quota
-from api_chaos_agent.models.tenant import Tenant
-from api_chaos_agent.routers.execution import set_mock_transport
-from api_chaos_agent.services.execution_engine import ExecutionEngine
 from api_chaos_agent.models.report import ExecutionStatus, ResponseData, ScenarioResult
+from api_chaos_agent.services.execution_engine import ExecutionEngine
 
 
 def _mock_handler(request: httpx.Request) -> httpx.Response:
@@ -56,6 +53,7 @@ async def _mock_execute(self, scenarios):
         sr.details = "Mocked execution"
         results.append(sr)
     from api_chaos_agent.models.report import TestResult
+
     tr = TestResult(total_scenarios=len(scenarios), config=self._config)
     tr.results = results
     tr.completed_scenarios = len(results)
@@ -132,7 +130,6 @@ def _make_license_key(license_type="commercial_pro", plan="pro"):
 
 
 class TestSchemaBoundaryConditions:
-
     def test_upload_empty_file(self, client):
         resp = client.post(
             "/api/schemas/upload",
@@ -160,7 +157,11 @@ class TestSchemaBoundaryConditions:
             paths[f"/endpoint-{i}"] = {
                 "get": {"summary": f"Endpoint {i}", "responses": {"200": {"description": "OK"}}}
             }
-        spec = {"openapi": "3.0.0", "info": {"title": "Huge API", "version": "1.0.0"}, "paths": paths}
+        spec = {
+            "openapi": "3.0.0",
+            "info": {"title": "Huge API", "version": "1.0.0"},
+            "paths": paths,
+        }
         spec_bytes = json.dumps(spec).encode()
         resp = client.post(
             "/api/schemas/upload",
@@ -182,7 +183,6 @@ class TestSchemaBoundaryConditions:
 
 
 class TestScenarioBoundaryConditions:
-
     def test_generate_scenarios_empty_schema(self, client):
         spec = {"openapi": "3.0.0", "info": {"title": "Empty API", "version": "1.0.0"}, "paths": {}}
         spec_bytes = json.dumps(spec).encode()
@@ -202,7 +202,6 @@ class TestScenarioBoundaryConditions:
 
 
 class TestExecutionBoundaryConditions:
-
     def test_create_execution_empty_scenario_ids(self, client):
         resp = client.post(
             "/api/executions/",
@@ -229,7 +228,11 @@ class TestExecutionBoundaryConditions:
         if scenario_ids:
             resp = client.post(
                 "/api/executions/",
-                params={"scenario_ids": scenario_ids, "base_url": "http://test.local", "concurrency": 0},
+                params={
+                    "scenario_ids": scenario_ids,
+                    "base_url": "http://test.local",
+                    "concurrency": 0,
+                },
             )
             assert resp.status_code in (200, 400, 422)
 
@@ -241,7 +244,11 @@ class TestExecutionBoundaryConditions:
         if scenario_ids:
             resp = client.post(
                 "/api/executions/",
-                params={"scenario_ids": scenario_ids, "base_url": "http://test.local", "concurrency": -1},
+                params={
+                    "scenario_ids": scenario_ids,
+                    "base_url": "http://test.local",
+                    "concurrency": -1,
+                },
             )
             assert resp.status_code in (400, 422)
 
@@ -263,7 +270,6 @@ class TestExecutionBoundaryConditions:
 
 
 class TestReportBoundaryConditions:
-
     def test_generate_report_nonexistent_execution(self, client):
         resp = client.post("/api/reports/generate/00000000-0000-0000-0000-000000000000")
         assert resp.status_code in (404, 400)
@@ -274,7 +280,6 @@ class TestReportBoundaryConditions:
 
 
 class TestDistributedBoundaryConditions:
-
     def test_register_worker_empty_name(self, client):
         resp = client.post(
             "/api/v2/distributed/workers/register",
@@ -290,7 +295,9 @@ class TestDistributedBoundaryConditions:
         assert resp.status_code in (200, 400, 422)
 
     def test_heartbeat_nonexistent_worker(self, client):
-        resp = client.post("/api/v2/distributed/workers/00000000-0000-0000-0000-000000000000/heartbeat")
+        resp = client.post(
+            "/api/v2/distributed/workers/00000000-0000-0000-0000-000000000000/heartbeat"
+        )
         assert resp.status_code in (404, 400)
 
     def test_unregister_nonexistent_worker(self, client):
@@ -306,7 +313,6 @@ class TestDistributedBoundaryConditions:
 
 
 class TestTenantBoundaryConditions:
-
     def test_create_tenant_empty_name(self, client):
         resp = client.post("/api/v2/tenants", params={"name": "", "plan": "free"})
         assert resp.status_code in (400, 422)
@@ -337,7 +343,6 @@ class TestTenantBoundaryConditions:
 
 
 class TestLicenseBoundaryConditions:
-
     def test_install_invalid_license_key(self, client):
         resp = client.post("/license/install", params={"key": "invalid-key"})
         assert resp.status_code in (400, 422)
@@ -366,20 +371,27 @@ class TestLicenseBoundaryConditions:
 
         key = _make_license_key()
         parts = key.split(".")
-        tampered_payload = base64.urlsafe_b64encode(b'{"type":"commercial_enterprise","plan":"enterprise"}').rstrip(b"=").decode()
+        tampered_payload = (
+            base64.urlsafe_b64encode(b'{"type":"commercial_enterprise","plan":"enterprise"}')
+            .rstrip(b"=")
+            .decode()
+        )
         tampered_key = f"{parts[0]}.{tampered_payload}.{parts[2]}"
         resp = client.post("/license/install", params={"key": tampered_key})
         assert resp.status_code in (400, 422)
 
 
 class TestFeatureGateBoundaryConditions:
-
     def test_check_feature_unknown_feature(self, client):
-        resp = client.get("/plans/check-feature", params={"feature": "nonexistent_feature", "plan": "free"})
+        resp = client.get(
+            "/plans/check-feature", params={"feature": "nonexistent_feature", "plan": "free"}
+        )
         assert resp.status_code in (200, 400, 404)
 
     def test_check_feature_unknown_plan(self, client):
-        resp = client.get("/plans/check-feature", params={"feature": "distributed_execution", "plan": "unknown"})
+        resp = client.get(
+            "/plans/check-feature", params={"feature": "distributed_execution", "plan": "unknown"}
+        )
         assert resp.status_code in (200, 400, 422)
 
     def test_quota_at_exact_limit(self):
@@ -395,7 +407,6 @@ class TestFeatureGateBoundaryConditions:
 
 
 class TestCiCdBoundaryConditions:
-
     def test_create_pipeline_empty_name(self, client):
         resp = client.post(
             "/api/v2/cicd/pipelines",
@@ -442,7 +453,6 @@ class TestCiCdBoundaryConditions:
 
 
 class TestGrpcGraphqlBoundaryConditions:
-
     def test_grpc_invalid_proto(self, client):
         resp = client.post(
             "/api/v2/schemas/parse/grpc",
@@ -473,7 +483,6 @@ class TestGrpcGraphqlBoundaryConditions:
 
 
 class TestPluginBoundaryConditions:
-
     def test_execute_nonexistent_plugin(self, client):
         resp = client.post(
             "/api/v2/plugins/nonexistent_plugin/execute",
@@ -492,7 +501,6 @@ class TestPluginBoundaryConditions:
 
 
 class TestAnalyticsBoundaryConditions:
-
     def test_summary_nonexistent_tenant(self, client):
         resp = client.get("/api/v2/analytics/summary/00000000-0000-0000-0000-000000000000")
         assert resp.status_code in (200, 404, 400)
@@ -500,5 +508,8 @@ class TestAnalyticsBoundaryConditions:
     def test_compare_no_reports(self, client):
         tenant_resp = client.post("/api/v2/tenants", params={"name": "CompareOrg", "plan": "pro"})
         tenant_id = tenant_resp.json()["id"]
-        resp = client.get(f"/api/v2/analytics/compare/{tenant_id}", params={"report_id_1": "r1", "report_id_2": "r2"})
+        resp = client.get(
+            f"/api/v2/analytics/compare/{tenant_id}",
+            params={"report_id_1": "r1", "report_id_2": "r2"},
+        )
         assert resp.status_code in (200, 400, 404)

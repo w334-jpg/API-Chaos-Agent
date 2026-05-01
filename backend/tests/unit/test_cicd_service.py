@@ -5,10 +5,12 @@ Covers: unit tests, functional tests, edge cases, stress tests.
 
 import time
 
-import pytest
-
 from api_chaos_agent.models.cicd import CiCdProvider, PipelineConfig, PipelineRun
-from api_chaos_agent.services.cicd_service import CiCdService, GitHubActionsGenerator, GitLabCIGenerator
+from api_chaos_agent.services.cicd_service import (
+    CiCdService,
+    GitHubActionsGenerator,
+    GitLabCIGenerator,
+)
 
 
 def _make_config(provider: CiCdProvider = CiCdProvider.GITHUB_ACTIONS, **kwargs) -> PipelineConfig:
@@ -108,7 +110,14 @@ class TestCiCdServiceUnit:
         config = _make_config()
         pipeline = self.service.create_pipeline("complete-test", config)
         run = self.service.trigger_run(pipeline.id)
-        completed = self.service.complete_run(run.id, pipeline.id, report_id="r1", vulnerabilities=3, max_severity="high", success=True)
+        completed = self.service.complete_run(
+            run.id,
+            pipeline.id,
+            report_id="r1",
+            vulnerabilities=3,
+            max_severity="high",
+            success=True,
+        )
         assert completed is not None
         assert completed.status == "completed"
         assert completed.report_id == "r1"

@@ -12,14 +12,15 @@ from api_chaos_agent.main import app
 from api_chaos_agent.routers.execution import set_mock_transport
 from api_chaos_agent.services.store import store
 
-
 FIXTURES_DIR = pathlib.Path(__file__).parent / "fixtures"
 PETSTORE_JSON = FIXTURES_DIR / "petstore_openapi.json"
 
 
 def _mock_handler(request: httpx.Request) -> httpx.Response:
     if "pets" in request.url.path and request.method == "GET":
-        return httpx.Response(status_code=200, json=[{"id": 1, "name": "Fido", "status": "available"}])
+        return httpx.Response(
+            status_code=200, json=[{"id": 1, "name": "Fido", "status": "available"}]
+        )
     if "pets" in request.url.path and request.method == "POST":
         return httpx.Response(status_code=201, json={"id": 2, "name": "NewPet"})
     if "pets" in request.url.path and request.method == "DELETE":

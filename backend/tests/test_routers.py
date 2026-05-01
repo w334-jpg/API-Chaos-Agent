@@ -60,7 +60,6 @@ def _upload_file(client, spec_dict, filename="openapi.json", content_type="appli
 
 
 class TestSchemaRouter:
-
     def test_upload_schema(self, client, sample_openapi_json):
         response = _upload_file(client, sample_openapi_json)
         assert response.status_code in (200, 201)
@@ -93,16 +92,13 @@ class TestSchemaRouter:
                 "name": "Test Collection",
                 "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
             },
-            "item": [
-                {"request": {"method": "GET", "url": "https://api.example.com/users"}}
-            ],
+            "item": [{"request": {"method": "GET", "url": "https://api.example.com/users"}}],
         }
         response = _upload_file(client, postman, filename="collection.json")
         assert response.status_code in (200, 201, 400)
 
 
 class TestScenarioRouter:
-
     def test_list_scenarios(self, client):
         response = client.get("/api/scenarios/")
         assert response.status_code == 200
@@ -117,7 +113,6 @@ class TestScenarioRouter:
 
 
 class TestExecutionRouter:
-
     def test_list_executions(self, client):
         response = client.get("/api/executions/")
         assert response.status_code == 200
@@ -132,7 +127,6 @@ class TestExecutionRouter:
 
 
 class TestReportRouter:
-
     def test_list_reports(self, client):
         response = client.get("/api/reports/")
         assert response.status_code == 200
@@ -147,7 +141,6 @@ class TestReportRouter:
 
 
 class TestHealthEndpoint:
-
     def test_health_check(self, client):
         response = client.get("/health")
         assert response.status_code == 200
@@ -159,7 +152,6 @@ class TestHealthEndpoint:
 
 
 class TestSchemaUploadAndScenarioGeneration:
-
     def test_upload_then_list(self, client, sample_openapi_json):
         upload_resp = _upload_file(client, sample_openapi_json)
         assert upload_resp.status_code in (200, 201)

@@ -14,18 +14,16 @@ import pytest
 from api_chaos_agent.models.report import (
     ExecutionConfig,
     ExecutionStatus,
-    ResponseData,
-    ScenarioResult,
     TestResult,
 )
 from api_chaos_agent.models.scenario import ChaosScenario, ChaosScenarioType, Severity
 from api_chaos_agent.models.schema import Endpoint, HttpMethod
 from api_chaos_agent.services.execution_engine import ExecutionEngine
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_endpoint(
     path: str = "/pets",
@@ -93,6 +91,7 @@ def _error_handler(exc: Exception):
 # 1. Test executing a single latency injection scenario
 # ---------------------------------------------------------------------------
 
+
 class TestLatencyInjection:
     @pytest.mark.asyncio
     async def test_latency_injection_returns_response(self):
@@ -114,6 +113,7 @@ class TestLatencyInjection:
 # 2. Test executing a single error status code scenario
 # ---------------------------------------------------------------------------
 
+
 class TestErrorStatusScenario:
     @pytest.mark.asyncio
     async def test_error_status_scenario(self):
@@ -122,7 +122,9 @@ class TestErrorStatusScenario:
             config={"status_code": 500, "repeat_count": 1},
         )
         config = _make_config()
-        engine = ExecutionEngine(config, transport=httpx.MockTransport(_mock_handler(500, {"error": "Internal"})))
+        engine = ExecutionEngine(
+            config, transport=httpx.MockTransport(_mock_handler(500, {"error": "Internal"}))
+        )
 
         result = await engine._execute_single(scenario)
 
@@ -134,6 +136,7 @@ class TestErrorStatusScenario:
 # ---------------------------------------------------------------------------
 # 3. Test executing a single request tampering scenario
 # ---------------------------------------------------------------------------
+
 
 class TestRequestTampering:
     @pytest.mark.asyncio
@@ -226,6 +229,7 @@ class TestRequestTampering:
 # 4. Test executing a single rate limit burst scenario
 # ---------------------------------------------------------------------------
 
+
 class TestRateLimitBurst:
     @pytest.mark.asyncio
     async def test_rate_limit_burst(self):
@@ -246,6 +250,7 @@ class TestRateLimitBurst:
 # ---------------------------------------------------------------------------
 # 5. Test parallel execution of multiple scenarios (concurrency=10)
 # ---------------------------------------------------------------------------
+
 
 class TestParallelExecution:
     @pytest.mark.asyncio
@@ -276,6 +281,7 @@ class TestParallelExecution:
 # 6. Test serial execution mode
 # ---------------------------------------------------------------------------
 
+
 class TestSerialExecution:
     @pytest.mark.asyncio
     async def test_serial_execution(self):
@@ -302,6 +308,7 @@ class TestSerialExecution:
 # 7. Test timeout handling (scenario exceeds timeout)
 # ---------------------------------------------------------------------------
 
+
 class TestTimeoutHandling:
     @pytest.mark.asyncio
     async def test_timeout_marks_scenario_as_timeout(self):
@@ -326,6 +333,7 @@ class TestTimeoutHandling:
 # ---------------------------------------------------------------------------
 # 8. Test retry logic (failed request retries up to max_retries)
 # ---------------------------------------------------------------------------
+
 
 class TestRetryLogic:
     @pytest.mark.asyncio
@@ -373,6 +381,7 @@ class TestRetryLogic:
 # 9. Test concurrency limit enforcement (100 concurrent max)
 # ---------------------------------------------------------------------------
 
+
 class TestConcurrencyLimit:
     @pytest.mark.asyncio
     async def test_concurrency_semaphore_limits_concurrent_requests(self):
@@ -410,6 +419,7 @@ class TestConcurrencyLimit:
 # 10. Test proxy configuration is used
 # ---------------------------------------------------------------------------
 
+
 class TestProxyConfiguration:
     @pytest.mark.asyncio
     async def test_proxy_stored_in_engine(self):
@@ -435,6 +445,7 @@ class TestProxyConfiguration:
 # ---------------------------------------------------------------------------
 # 11. Test custom headers are sent
 # ---------------------------------------------------------------------------
+
 
 class TestCustomHeaders:
     @pytest.mark.asyncio
@@ -466,6 +477,7 @@ class TestCustomHeaders:
 # 12. Test execution result contains correct status/response data
 # ---------------------------------------------------------------------------
 
+
 class TestExecutionResultData:
     @pytest.mark.asyncio
     async def test_result_contains_correct_fields(self):
@@ -477,7 +489,9 @@ class TestExecutionResultData:
             severity=Severity.HIGH,
         )
         config = _make_config()
-        engine = ExecutionEngine(config, transport=httpx.MockTransport(_mock_handler(200, {"status": "ok"})))
+        engine = ExecutionEngine(
+            config, transport=httpx.MockTransport(_mock_handler(200, {"status": "ok"}))
+        )
 
         result = await engine._execute_single(scenario)
 
@@ -517,6 +531,7 @@ class TestExecutionResultData:
 # ---------------------------------------------------------------------------
 # 13. Test handling connection errors gracefully
 # ---------------------------------------------------------------------------
+
 
 class TestConnectionErrors:
     @pytest.mark.asyncio

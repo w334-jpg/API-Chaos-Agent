@@ -17,14 +17,13 @@ import base64
 import io
 import json
 import os
-import time
 
 import pytest
 from fastapi.testclient import TestClient
 
+from api_chaos_agent.core.feature_gates import FEATURE_GATES
+from api_chaos_agent.core.license import _LICENSE_FILE_PATHS, LicenseManager, _generate_signature
 from api_chaos_agent.main import app
-from api_chaos_agent.core.license import LicenseManager, _LICENSE_FILE_PATHS, _generate_signature
-from api_chaos_agent.core.feature_gates import TenantPlan, FEATURE_GATES
 
 
 @pytest.fixture(autouse=True)
@@ -75,16 +74,19 @@ def _make_license_key(license_type="commercial_pro", plan="pro", holder="sec-org
 
 
 class TestInjectionAttacks:
-
     def test_sql_injection_in_schema_name(self, client):
         spec = {
             "openapi": "3.0.0",
             "info": {"title": "'; DROP TABLE schemas;--", "version": "1.0.0"},
-            "paths": {"/test": {"get": {"summary": "Test", "responses": {"200": {"description": "OK"}}}}},
+            "paths": {
+                "/test": {"get": {"summary": "Test", "responses": {"200": {"description": "OK"}}}}
+            },
         }
         resp = client.post(
             "/api/schemas/upload",
-            files={"file": ("sqli.json", io.BytesIO(json.dumps(spec).encode()), "application/json")},
+            files={
+                "file": ("sqli.json", io.BytesIO(json.dumps(spec).encode()), "application/json")
+            },
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -122,11 +124,17 @@ class TestInjectionAttacks:
             spec = {
                 "openapi": "3.0.0",
                 "info": {"title": payload, "version": "1.0.0"},
-                "paths": {"/test": {"get": {"summary": "Test", "responses": {"200": {"description": "OK"}}}}},
+                "paths": {
+                    "/test": {
+                        "get": {"summary": "Test", "responses": {"200": {"description": "OK"}}}
+                    }
+                },
             }
             resp = client.post(
                 "/api/schemas/upload",
-                files={"file": ("xss.json", io.BytesIO(json.dumps(spec).encode()), "application/json")},
+                files={
+                    "file": ("xss.json", io.BytesIO(json.dumps(spec).encode()), "application/json")
+                },
             )
             assert resp.status_code == 200
 
@@ -155,7 +163,6 @@ class TestInjectionAttacks:
 
 
 class TestLicenseSecurity:
-
     def test_license_key_forgery_wrong_signature(self, client):
         forged_key = "eyJhbGciOiJzaGEyNTYiLCJ0eXAiOiJsaWNlbnNlIn0.eyJ0eXBlIjoiY29tbWVyY2lhbF9lbnRlcnByaXNlIiwicGxhbiI6ImVudGVycHJpc2UifQ.forgedsignature123"
         resp = client.post("/license/install", params={"key": forged_key})
@@ -168,7 +175,11 @@ class TestLicenseSecurity:
         payload = json.loads(payload_json)
         payload["plan"] = "enterprise"
         payload["type"] = "commercial_enterprise"
-        tampered_b64 = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode()).rstrip(b"=").decode()
+        tampered_b64 = (
+            base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode())
+            .rstrip(b"=")
+            .decode()
+        )
         tampered_key = f"{parts[0]}.{tampered_b64}.{parts[2]}"
         resp = client.post("/license/install", params={"key": tampered_key})
         assert resp.status_code in (400, 422)
@@ -190,7 +201,9 @@ class TestLicenseSecurity:
         payload_json = json.dumps(payload, separators=(",", ":"))
         payload_b64 = base64.urlsafe_b64encode(payload_json.encode()).rstrip(b"=").decode()
         signature = _generate_signature(payload_b64)
-        header_b64 = base64.urlsafe_b64encode(b'{"alg":"sha256","typ":"license"}').rstrip(b"=").decode()
+        header_b64 = (
+            base64.urlsafe_b64encode(b'{"alg":"sha256","typ":"license"}').rstrip(b"=").decode()
+        )
         expired_key = f"{header_b64}.{payload_b64}.{signature}"
         resp = client.post("/license/install", params={"key": expired_key})
         assert resp.status_code in (400, 422)
@@ -201,22 +214,27 @@ class TestLicenseSecurity:
         assert resp.status_code in (400, 422)
 
     def test_license_key_binary_payload(self, client):
-        binary_b64 = base64.urlsafe_b64encode(b'\x00\x01\x02\xff\xfe\xfd').decode()
+        binary_b64 = base64.urlsafe_b64encode(b"\x00\x01\x02\xff\xfe\xfd").decode()
         key = f"{binary_b64}.{binary_b64}.{binary_b64}"
         resp = client.post("/license/install", params={"key": key})
         assert resp.status_code in (400, 422)
 
 
 class TestAuthorizationSecurity:
-
     def test_feature_gate_enforcement(self, client):
-        resp = client.get("/plans/check-feature", params={"feature": "distributed_execution", "plan": "free"})
+        resp = client.get(
+            "/plans/check-feature", params={"feature": "distributed_execution", "plan": "free"}
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data.get("available") is False or data.get("allowed") is False
 
     def test_plan_hierarchy_no_downgrade_access(self, client):
-        enterprise_only_features = [f for f, gates in FEATURE_GATES.items() if not gates.get("pro", False) and gates.get("enterprise", False)]
+        enterprise_only_features = [
+            f
+            for f, gates in FEATURE_GATES.items()
+            if not gates.get("pro", False) and gates.get("enterprise", False)
+        ]
         for feature in enterprise_only_features[:3]:
             resp = client.get("/plans/check-feature", params={"feature": feature, "plan": "pro"})
             assert resp.status_code == 200
@@ -231,6 +249,7 @@ class TestAuthorizationSecurity:
         LicenseManager._license_info = None
         LicenseManager._last_check = 0.0
         from api_chaos_agent.routers.license import license_manager
+
         license_manager._license_info = None
         license_manager._last_check = 0.0
         resp = client.get("/license/check-pro")
@@ -240,7 +259,6 @@ class TestAuthorizationSecurity:
 
 
 class TestSensitiveDataExposure:
-
     def test_api_key_not_in_response(self, client):
         tenant_resp = client.post("/api/v2/tenants", params={"name": "SecTestOrg"})
         assert tenant_resp.status_code == 200
@@ -275,7 +293,6 @@ class TestSensitiveDataExposure:
 
 
 class TestInputSanitization:
-
     def test_unicode_handling_in_names(self, client):
         resp = client.post("/api/v2/tenants", params={"name": "测试组织🎉"})
         assert resp.status_code in (200, 400, 422)
@@ -293,7 +310,7 @@ class TestInputSanitization:
         special_names = [
             "test<script>",
             "test'OR'1'='1",
-            "test\"; DROP TABLE--",
+            'test"; DROP TABLE--',
         ]
         for name in special_names:
             resp = client.post(
@@ -315,7 +332,6 @@ class TestInputSanitization:
 
 
 class TestDosResilience:
-
     def test_rapid_requests_no_crash(self, client):
         for _ in range(100):
             resp = client.get("/health")
@@ -325,11 +341,22 @@ class TestDosResilience:
         huge_spec = {
             "openapi": "3.0.0",
             "info": {"title": "Huge", "version": "1.0.0"},
-            "paths": {f"/ep-{i}": {"get": {"summary": f"EP{i}", "responses": {"200": {"description": "OK"}}}} for i in range(1000)},
+            "paths": {
+                f"/ep-{i}": {
+                    "get": {"summary": f"EP{i}", "responses": {"200": {"description": "OK"}}}
+                }
+                for i in range(1000)
+            },
         }
         resp = client.post(
             "/api/schemas/upload",
-            files={"file": ("huge.json", io.BytesIO(json.dumps(huge_spec).encode()), "application/json")},
+            files={
+                "file": (
+                    "huge.json",
+                    io.BytesIO(json.dumps(huge_spec).encode()),
+                    "application/json",
+                )
+            },
         )
         assert resp.status_code in (200, 400, 413)
 
@@ -354,7 +381,6 @@ class TestDosResilience:
 
 
 class TestBSLCompliance:
-
     def test_bsl_features_require_license_in_production(self):
         os.environ["API_CHAOS_AGENT_ENV"] = "production"
         os.environ["API_CHAOS_AGENT_ORG_SIZE"] = "200"

@@ -16,17 +16,13 @@ import gc
 import io
 import json
 import os
-import sys
-import threading
-import time
-import weakref
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pytest
 from fastapi.testclient import TestClient
 
+from api_chaos_agent.core.license import _LICENSE_FILE_PATHS, LicenseManager
 from api_chaos_agent.main import app
-from api_chaos_agent.core.license import LicenseManager, _LICENSE_FILE_PATHS
 from api_chaos_agent.services.store import store
 
 
@@ -73,7 +69,6 @@ def _upload_openapi(client, title="Stability API"):
 
 
 class TestLongRunningStability:
-
     def test_repeated_schema_upload_cycles(self, client):
         for i in range(50):
             resp = _upload_openapi(client, f"Stability-{i}")
@@ -104,7 +99,6 @@ class TestLongRunningStability:
 
 
 class TestResourceLeakDetection:
-
     def test_schema_upload_no_memory_leak(self, client):
         gc.collect()
         obj_count_before = len(gc.get_objects())
@@ -141,16 +135,15 @@ class TestResourceLeakDetection:
         assert growth < 5000, f"Object count grew by {growth}, possible memory leak"
 
     def test_store_growth_bounded(self, client):
-        initial_schemas = len(store._schemas) if hasattr(store, '_schemas') else 0
+        initial_schemas = len(store._schemas) if hasattr(store, "_schemas") else 0
         for i in range(20):
             _upload_openapi(client, f"Growth-{i}")
-        final_schemas = len(store._schemas) if hasattr(store, '_schemas') else 0
+        final_schemas = len(store._schemas) if hasattr(store, "_schemas") else 0
         assert final_schemas >= initial_schemas
         assert final_schemas <= initial_schemas + 20
 
 
 class TestConcurrentSafety:
-
     def test_concurrent_schema_uploads(self, client):
         errors = []
         results = []
@@ -244,7 +237,10 @@ class TestConcurrentSafety:
 
         def check_feature(_):
             try:
-                resp = client.get("/plans/check-feature", params={"feature": "distributed_execution", "plan": "pro"})
+                resp = client.get(
+                    "/plans/check-feature",
+                    params={"feature": "distributed_execution", "plan": "pro"},
+                )
                 assert resp.status_code == 200
             except Exception as e:
                 errors.append(e)
@@ -258,11 +254,12 @@ class TestConcurrentSafety:
 
 
 class TestDataConsistency:
-
     def test_tenant_data_consistency_after_concurrent_writes(self, client):
         tenant_ids = []
         for i in range(10):
-            resp = client.post("/api/v2/tenants", params={"name": f"ConsistTenant-{i}", "plan": "free"})
+            resp = client.post(
+                "/api/v2/tenants", params={"name": f"ConsistTenant-{i}", "plan": "free"}
+            )
             assert resp.status_code == 200
             tenant_ids.append(resp.json()["id"])
 
@@ -304,7 +301,9 @@ class TestDataConsistency:
     def test_no_data_corruption_under_stress(self, client):
         tenant_ids = []
         for i in range(5):
-            resp = client.post("/api/v2/tenants", params={"name": f"CorruptTest-{i}", "plan": "pro"})
+            resp = client.post(
+                "/api/v2/tenants", params={"name": f"CorruptTest-{i}", "plan": "pro"}
+            )
             tenant_ids.append(resp.json()["id"])
 
         def update_and_verify(tid, idx):
@@ -326,7 +325,6 @@ class TestDataConsistency:
 
 
 class TestErrorRecovery:
-
     def test_system_recovers_after_invalid_requests(self, client):
         for _ in range(10):
             client.get("/api/schemas/nonexistent-id")

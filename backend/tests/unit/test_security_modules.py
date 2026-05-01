@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import json
-import os
 import tempfile
-
-import pytest
 
 from api_chaos_agent.core.audit import AuditLogger
 from api_chaos_agent.core.key_store import SecureKeyStore
@@ -42,7 +39,9 @@ class TestSchemaSanitizer:
             },
         }
         result = self.sanitizer.sanitize(spec)
-        pw = result["paths"]["/login"]["post"]["requestBody"]["content"]["application/json"]["schema"]["properties"]["password"]
+        pw = result["paths"]["/login"]["post"]["requestBody"]["content"]["application/json"][
+            "schema"
+        ]["properties"]["password"]
         assert pw.get("example") == "[REDACTED]"
 
     def test_sanitize_api_key_field(self):
@@ -68,7 +67,11 @@ class TestSchemaSanitizer:
     def test_sanitize_contact_email(self):
         spec = {
             "openapi": "3.0.0",
-            "info": {"title": "T", "version": "1", "contact": {"email": "admin@corp.com", "name": "Admin"}},
+            "info": {
+                "title": "T",
+                "version": "1",
+                "contact": {"email": "admin@corp.com", "name": "Admin"},
+            },
             "paths": {},
         }
         result = self.sanitizer.sanitize(spec)
@@ -107,7 +110,10 @@ class TestSchemaSanitizer:
                                     "schema": {
                                         "type": "object",
                                         "properties": {
-                                            "token": {"type": "string", "default": "eyJhbGciOiJIUzI1NiJ9..."},
+                                            "token": {
+                                                "type": "string",
+                                                "default": "eyJhbGciOiJIUzI1NiJ9...",
+                                            },
                                         },
                                     }
                                 }
@@ -119,7 +125,9 @@ class TestSchemaSanitizer:
             },
         }
         result = self.sanitizer.sanitize(spec)
-        token_prop = result["paths"]["/auth"]["post"]["requestBody"]["content"]["application/json"]["schema"]["properties"]["token"]
+        token_prop = result["paths"]["/auth"]["post"]["requestBody"]["content"]["application/json"][
+            "schema"
+        ]["properties"]["token"]
         assert token_prop.get("default") == "[REDACTED]"
 
     def test_sanitize_secret_field(self):
@@ -135,7 +143,10 @@ class TestSchemaSanitizer:
                                     "schema": {
                                         "type": "object",
                                         "properties": {
-                                            "client_secret": {"type": "string", "example": "abc123def456"},
+                                            "client_secret": {
+                                                "type": "string",
+                                                "example": "abc123def456",
+                                            },
                                         },
                                     }
                                 }
@@ -147,7 +158,9 @@ class TestSchemaSanitizer:
             },
         }
         result = self.sanitizer.sanitize(spec)
-        secret_prop = result["paths"]["/setup"]["post"]["requestBody"]["content"]["application/json"]["schema"]["properties"]["client_secret"]
+        secret_prop = result["paths"]["/setup"]["post"]["requestBody"]["content"][
+            "application/json"
+        ]["schema"]["properties"]["client_secret"]
         assert secret_prop.get("example") == "[REDACTED]"
 
 
@@ -191,29 +204,81 @@ class TestSecureKeyStore:
 class TestAuditLogger:
     def test_record_and_stats(self):
         logger = AuditLogger()
-        logger.record(provider="openai", model="gpt-4", operation="generate", prompt_tokens=100, completion_tokens=50, latency_ms=500)
-        logger.record(provider="ollama", model="llama3", operation="generate", prompt_tokens=200, completion_tokens=100, latency_ms=1200, status="error", error_message="timeout")
+        logger.record(
+            provider="openai",
+            model="gpt-4",
+            operation="generate",
+            prompt_tokens=100,
+            completion_tokens=50,
+            latency_ms=500,
+        )
+        logger.record(
+            provider="ollama",
+            model="llama3",
+            operation="generate",
+            prompt_tokens=200,
+            completion_tokens=100,
+            latency_ms=1200,
+            status="error",
+            error_message="timeout",
+        )
         stats = logger.get_stats()
         assert stats["total_calls"] == 2
         assert stats["error_count"] == 1
 
     def test_query_by_provider(self):
         logger = AuditLogger()
-        logger.record(provider="openai", model="gpt-4", operation="generate", prompt_tokens=100, completion_tokens=50, latency_ms=500)
-        logger.record(provider="ollama", model="llama3", operation="generate", prompt_tokens=200, completion_tokens=100, latency_ms=1200)
+        logger.record(
+            provider="openai",
+            model="gpt-4",
+            operation="generate",
+            prompt_tokens=100,
+            completion_tokens=50,
+            latency_ms=500,
+        )
+        logger.record(
+            provider="ollama",
+            model="llama3",
+            operation="generate",
+            prompt_tokens=200,
+            completion_tokens=100,
+            latency_ms=1200,
+        )
         entries = logger.query(provider="openai")
         assert len(entries) == 1
 
     def test_query_by_status(self):
         logger = AuditLogger()
-        logger.record(provider="openai", model="gpt-4", operation="generate", prompt_tokens=100, completion_tokens=50, latency_ms=500)
-        logger.record(provider="ollama", model="llama3", operation="generate", prompt_tokens=200, completion_tokens=100, latency_ms=1200, status="error")
+        logger.record(
+            provider="openai",
+            model="gpt-4",
+            operation="generate",
+            prompt_tokens=100,
+            completion_tokens=50,
+            latency_ms=500,
+        )
+        logger.record(
+            provider="ollama",
+            model="llama3",
+            operation="generate",
+            prompt_tokens=200,
+            completion_tokens=100,
+            latency_ms=1200,
+            status="error",
+        )
         errors = logger.query(status="error")
         assert len(errors) == 1
 
     def test_export_json(self):
         logger = AuditLogger()
-        logger.record(provider="openai", model="gpt-4", operation="generate", prompt_tokens=100, completion_tokens=50, latency_ms=500)
+        logger.record(
+            provider="openai",
+            model="gpt-4",
+            operation="generate",
+            prompt_tokens=100,
+            completion_tokens=50,
+            latency_ms=500,
+        )
         json_str = logger.export_json()
         data = json.loads(json_str)
         assert len(data) >= 1
@@ -226,6 +291,13 @@ class TestAuditLogger:
     def test_multiple_records(self):
         logger = AuditLogger()
         for i in range(10):
-            logger.record(provider="openai", model="gpt-4", operation="generate", prompt_tokens=i * 10, completion_tokens=i * 5, latency_ms=i * 100)
+            logger.record(
+                provider="openai",
+                model="gpt-4",
+                operation="generate",
+                prompt_tokens=i * 10,
+                completion_tokens=i * 5,
+                latency_ms=i * 100,
+            )
         stats = logger.get_stats()
         assert stats["total_calls"] == 10

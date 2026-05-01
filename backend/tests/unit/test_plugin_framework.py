@@ -8,14 +8,11 @@ import json
 import os
 import tempfile
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from api_chaos_agent.models.plugin import (
-    FaultPlugin,
-    FaultPluginExecution,
-    FaultPluginManifest,
     PluginStatus,
 )
 from api_chaos_agent.models.scenario import ChaosScenario, ChaosScenarioType, Endpoint
@@ -31,8 +28,12 @@ from api_chaos_agent.services.plugin_framework import (
 _DEFAULT_ENDPOINT = Endpoint(path="/api/test", method="GET")
 
 
-def _make_scenario(idx: int = 0, stype: ChaosScenarioType = ChaosScenarioType.LATENCY) -> ChaosScenario:
-    return ChaosScenario(id=f"s{idx}", name=f"scenario-{idx}", scenario_type=stype, endpoint=_DEFAULT_ENDPOINT)
+def _make_scenario(
+    idx: int = 0, stype: ChaosScenarioType = ChaosScenarioType.LATENCY
+) -> ChaosScenario:
+    return ChaosScenario(
+        id=f"s{idx}", name=f"scenario-{idx}", scenario_type=stype, endpoint=_DEFAULT_ENDPOINT
+    )
 
 
 class TestPluginManagerUnit:
@@ -133,7 +134,9 @@ class TestPluginExecution:
     @pytest.mark.asyncio
     async def test_execute_resource_exhaustion(self):
         scenario = _make_scenario(0, ChaosScenarioType.RESOURCE_EXHAUSTION)
-        result = await self.manager.execute("resource_exhaustion", scenario, {"resource_type": "memory", "intensity": "high"})
+        result = await self.manager.execute(
+            "resource_exhaustion", scenario, {"resource_type": "memory", "intensity": "high"}
+        )
         assert result.success
         assert result.output["injected"]
         assert result.output["resource_type"] == "memory"
@@ -142,60 +145,78 @@ class TestPluginExecution:
     @pytest.mark.asyncio
     async def test_execute_resource_exhaustion_cpu(self):
         scenario = _make_scenario(0, ChaosScenarioType.RESOURCE_EXHAUSTION)
-        result = await self.manager.execute("resource_exhaustion", scenario, {"resource_type": "cpu"})
+        result = await self.manager.execute(
+            "resource_exhaustion", scenario, {"resource_type": "cpu"}
+        )
         assert result.success
         assert result.output["resource_type"] == "cpu"
 
     @pytest.mark.asyncio
     async def test_execute_resource_exhaustion_connections(self):
         scenario = _make_scenario(0, ChaosScenarioType.RESOURCE_EXHAUSTION)
-        result = await self.manager.execute("resource_exhaustion", scenario, {"resource_type": "connections"})
+        result = await self.manager.execute(
+            "resource_exhaustion", scenario, {"resource_type": "connections"}
+        )
         assert result.success
         assert result.output["resource_type"] == "connections"
 
     @pytest.mark.asyncio
     async def test_execute_data_corruption_encoding(self):
         scenario = _make_scenario(0, ChaosScenarioType.DATA_CORRUPTION)
-        result = await self.manager.execute("data_corruption", scenario, {"corruption_type": "encoding"})
+        result = await self.manager.execute(
+            "data_corruption", scenario, {"corruption_type": "encoding"}
+        )
         assert result.success
         assert result.output["corruption_type"] == "encoding"
 
     @pytest.mark.asyncio
     async def test_execute_data_corruption_truncation(self):
         scenario = _make_scenario(0, ChaosScenarioType.DATA_CORRUPTION)
-        result = await self.manager.execute("data_corruption", scenario, {"corruption_type": "truncation", "target_field": "body"})
+        result = await self.manager.execute(
+            "data_corruption", scenario, {"corruption_type": "truncation", "target_field": "body"}
+        )
         assert result.success
         assert result.output["target_field"] == "body"
 
     @pytest.mark.asyncio
     async def test_execute_dependency_failure_timeout(self):
         scenario = _make_scenario(0, ChaosScenarioType.DEPENDENCY_FAILURE)
-        result = await self.manager.execute("dependency_failure", scenario, {"failure_type": "timeout"})
+        result = await self.manager.execute(
+            "dependency_failure", scenario, {"failure_type": "timeout"}
+        )
         assert result.success
 
     @pytest.mark.asyncio
     async def test_execute_dependency_failure_circuit_break(self):
         scenario = _make_scenario(0, ChaosScenarioType.DEPENDENCY_FAILURE)
-        result = await self.manager.execute("dependency_failure", scenario, {"failure_type": "circuit_break"})
+        result = await self.manager.execute(
+            "dependency_failure", scenario, {"failure_type": "circuit_break"}
+        )
         assert result.success
 
     @pytest.mark.asyncio
     async def test_execute_network_partition_packet_loss(self):
         scenario = _make_scenario(0, ChaosScenarioType.NETWORK_PARTITION)
-        result = await self.manager.execute("network_partition", scenario, {"partition_type": "packet_loss"})
+        result = await self.manager.execute(
+            "network_partition", scenario, {"partition_type": "packet_loss"}
+        )
         assert result.success
 
     @pytest.mark.asyncio
     async def test_execute_network_partition_dns_failure(self):
         scenario = _make_scenario(0, ChaosScenarioType.NETWORK_PARTITION)
-        result = await self.manager.execute("network_partition", scenario, {"partition_type": "dns_failure"})
+        result = await self.manager.execute(
+            "network_partition", scenario, {"partition_type": "dns_failure"}
+        )
         assert result.success
 
     @pytest.mark.asyncio
     async def test_execute_disabled_plugin_fails(self):
         self.manager.disable("resource_exhaustion")
         scenario = _make_scenario(0, ChaosScenarioType.RESOURCE_EXHAUSTION)
-        result = await self.manager.execute("resource_exhaustion", scenario, {"resource_type": "memory"})
+        result = await self.manager.execute(
+            "resource_exhaustion", scenario, {"resource_type": "memory"}
+        )
         assert not result.success
         assert "not enabled" in result.error
 
@@ -209,7 +230,9 @@ class TestPluginExecution:
     @pytest.mark.asyncio
     async def test_execute_invalid_config(self):
         scenario = _make_scenario(0, ChaosScenarioType.RESOURCE_EXHAUSTION)
-        result = await self.manager.execute("resource_exhaustion", scenario, {"invalid_key": "value"})
+        result = await self.manager.execute(
+            "resource_exhaustion", scenario, {"invalid_key": "value"}
+        )
         assert not result.success
         assert "validation" in result.error.lower()
 
@@ -234,7 +257,9 @@ class TestPluginExecution:
     @pytest.mark.asyncio
     async def test_execution_result_has_elapsed_ms(self):
         scenario = _make_scenario(0, ChaosScenarioType.RESOURCE_EXHAUSTION)
-        result = await self.manager.execute("resource_exhaustion", scenario, {"resource_type": "memory"})
+        result = await self.manager.execute(
+            "resource_exhaustion", scenario, {"resource_type": "memory"}
+        )
         assert result.success
         assert result.elapsed_ms is not None
         assert result.elapsed_ms >= 0
@@ -242,7 +267,9 @@ class TestPluginExecution:
     @pytest.mark.asyncio
     async def test_execution_result_has_scenario_id(self):
         scenario = _make_scenario(42, ChaosScenarioType.RESOURCE_EXHAUSTION)
-        result = await self.manager.execute("resource_exhaustion", scenario, {"resource_type": "memory"})
+        result = await self.manager.execute(
+            "resource_exhaustion", scenario, {"resource_type": "memory"}
+        )
         assert result.scenario_id == "s42"
 
     @pytest.mark.asyncio
@@ -255,9 +282,13 @@ class TestPluginExecution:
     @pytest.mark.asyncio
     async def test_execution_result_on_exception(self):
         instance = self.manager._instances["resource_exhaustion"]
-        with patch.object(instance, "execute", new_callable=AsyncMock, side_effect=RuntimeError("boom")):
+        with patch.object(
+            instance, "execute", new_callable=AsyncMock, side_effect=RuntimeError("boom")
+        ):
             scenario = _make_scenario(0, ChaosScenarioType.RESOURCE_EXHAUSTION)
-            result = await self.manager.execute("resource_exhaustion", scenario, {"resource_type": "memory"})
+            result = await self.manager.execute(
+                "resource_exhaustion", scenario, {"resource_type": "memory"}
+            )
             assert not result.success
             assert "boom" in result.error
             plugin = self.manager.get("resource_exhaustion")
@@ -376,7 +407,9 @@ class TestPluginLoading:
         assert result is None
 
     def test_load_from_entrypoint_nonexistent_class(self):
-        result = self.manager.load_from_entrypoint("api_chaos_agent.services.plugin_framework:NonexistentClass")
+        result = self.manager.load_from_entrypoint(
+            "api_chaos_agent.services.plugin_framework:NonexistentClass"
+        )
         assert result is None
 
     def test_load_from_directory_overwrites_existing(self):
@@ -418,7 +451,12 @@ class TestPluginLoading:
 
 class TestPluginInterface:
     def test_builtin_plugins_implement_interface(self):
-        for plugin_cls in [BuiltinResourceExhaustionPlugin, BuiltinDataCorruptionPlugin, BuiltinDependencyFailurePlugin, BuiltinNetworkPartitionPlugin]:
+        for plugin_cls in [
+            BuiltinResourceExhaustionPlugin,
+            BuiltinDataCorruptionPlugin,
+            BuiltinDependencyFailurePlugin,
+            BuiltinNetworkPartitionPlugin,
+        ]:
             instance = plugin_cls()
             assert isinstance(instance, FaultPluginInterface)
             assert hasattr(instance, "manifest")
@@ -543,16 +581,22 @@ class TestPluginFunctional:
         )
         assert loaded is not None
         scenario = _make_scenario(0, ChaosScenarioType.DATA_CORRUPTION)
-        result = await manager.execute("data_corruption", scenario, {"corruption_type": "injection"})
+        result = await manager.execute(
+            "data_corruption", scenario, {"corruption_type": "injection"}
+        )
         assert result.success
 
     @pytest.mark.asyncio
     async def test_error_recovery_after_exception(self):
         manager = PluginManager()
         instance = manager._instances["resource_exhaustion"]
-        with patch.object(instance, "execute", new_callable=AsyncMock, side_effect=RuntimeError("crash")):
+        with patch.object(
+            instance, "execute", new_callable=AsyncMock, side_effect=RuntimeError("crash")
+        ):
             scenario = _make_scenario(0, ChaosScenarioType.RESOURCE_EXHAUSTION)
-            result = await manager.execute("resource_exhaustion", scenario, {"resource_type": "memory"})
+            result = await manager.execute(
+                "resource_exhaustion", scenario, {"resource_type": "memory"}
+            )
             assert not result.success
             plugin = manager.get("resource_exhaustion")
             assert plugin.status == PluginStatus.ERROR

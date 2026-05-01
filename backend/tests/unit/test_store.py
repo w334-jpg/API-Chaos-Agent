@@ -3,20 +3,20 @@
 from __future__ import annotations
 
 import asyncio
-import time
 
 import pytest
-import pytest_asyncio
 
-from api_chaos_agent.models.schema import APISpec, Endpoint, HttpMethod
+from api_chaos_agent.models.report import Report, ReportSummary, TestResult
 from api_chaos_agent.models.scenario import ChaosScenario, ChaosScenarioType, Severity
-from api_chaos_agent.models.report import TestResult, Report, ReportSummary
+from api_chaos_agent.models.schema import APISpec, Endpoint, HttpMethod
 from api_chaos_agent.services.store import InMemoryStore
 
 
 @pytest.fixture
 def store() -> InMemoryStore:
-    return InMemoryStore(max_schemas=5, max_scenarios=5, max_executions=5, max_reports=5, ttl_seconds=60)
+    return InMemoryStore(
+        max_schemas=5, max_scenarios=5, max_executions=5, max_reports=5, ttl_seconds=60
+    )
 
 
 @pytest.mark.asyncio
@@ -100,7 +100,9 @@ async def test_save_and_get_execution(store: InMemoryStore) -> None:
 
 @pytest.mark.asyncio
 async def test_save_and_get_report(store: InMemoryStore) -> None:
-    report = Report(id="test-report", schema_id="test-schema", summary=ReportSummary(total_scenarios=3))
+    report = Report(
+        id="test-report", schema_id="test-schema", summary=ReportSummary(total_scenarios=3)
+    )
     report_id = await store.save_report(report)
     assert report_id is not None
 

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from api_chaos_agent.models.schema import HttpMethod
 from api_chaos_agent.services.postman_adapter import PostmanAdapter
 
@@ -45,7 +43,10 @@ class TestPostmanImport:
 
     def test_import_post_with_body(self):
         collection = {
-            "info": {"name": "T", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},
+            "info": {
+                "name": "T",
+                "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+            },
             "item": [
                 {
                     "name": "Create User",
@@ -53,7 +54,12 @@ class TestPostmanImport:
                         "method": "POST",
                         "header": [{"key": "Content-Type", "value": "application/json"}],
                         "body": {"mode": "raw", "raw": json.dumps({"name": "John"})},
-                        "url": {"raw": "https://api.example.com/users", "protocol": "https", "host": ["api", "example", "com"], "path": ["users"]},
+                        "url": {
+                            "raw": "https://api.example.com/users",
+                            "protocol": "https",
+                            "host": ["api", "example", "com"],
+                            "path": ["users"],
+                        },
                     },
                     "response": [],
                 }
@@ -66,7 +72,10 @@ class TestPostmanImport:
 
     def test_import_with_query_params(self):
         collection = {
-            "info": {"name": "T", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},
+            "info": {
+                "name": "T",
+                "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+            },
             "item": [
                 {
                     "name": "Search",
@@ -91,7 +100,10 @@ class TestPostmanImport:
 
     def test_import_empty_collection(self):
         collection = {
-            "info": {"name": "Empty", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},
+            "info": {
+                "name": "Empty",
+                "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+            },
             "item": [],
         }
         spec = self.adapter.import_collection(collection)
@@ -100,12 +112,63 @@ class TestPostmanImport:
 
     def test_import_multiple_methods(self):
         collection = {
-            "info": {"name": "T", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},
+            "info": {
+                "name": "T",
+                "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+            },
             "item": [
-                {"name": "List", "request": {"method": "GET", "header": [], "url": {"raw": "https://api.example.com/items", "host": ["api", "example", "com"], "path": ["items"]}}, "response": []},
-                {"name": "Create", "request": {"method": "POST", "header": [], "url": {"raw": "https://api.example.com/items", "host": ["api", "example", "com"], "path": ["items"]}}, "response": []},
-                {"name": "Update", "request": {"method": "PUT", "header": [], "url": {"raw": "https://api.example.com/items/1", "host": ["api", "example", "com"], "path": ["items", "1"]}}, "response": []},
-                {"name": "Delete", "request": {"method": "DELETE", "header": [], "url": {"raw": "https://api.example.com/items/1", "host": ["api", "example", "com"], "path": ["items", "1"]}}, "response": []},
+                {
+                    "name": "List",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "https://api.example.com/items",
+                            "host": ["api", "example", "com"],
+                            "path": ["items"],
+                        },
+                    },
+                    "response": [],
+                },
+                {
+                    "name": "Create",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "https://api.example.com/items",
+                            "host": ["api", "example", "com"],
+                            "path": ["items"],
+                        },
+                    },
+                    "response": [],
+                },
+                {
+                    "name": "Update",
+                    "request": {
+                        "method": "PUT",
+                        "header": [],
+                        "url": {
+                            "raw": "https://api.example.com/items/1",
+                            "host": ["api", "example", "com"],
+                            "path": ["items", "1"],
+                        },
+                    },
+                    "response": [],
+                },
+                {
+                    "name": "Delete",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "https://api.example.com/items/1",
+                            "host": ["api", "example", "com"],
+                            "path": ["items", "1"],
+                        },
+                    },
+                    "response": [],
+                },
             ],
         }
         spec = self.adapter.import_collection(collection)
@@ -122,24 +185,47 @@ class TestPostmanExport:
 
     def test_export_has_v21_schema(self):
         from api_chaos_agent.models.schema import APISpec, Endpoint
-        spec = APISpec(title="Test", version="1.0", endpoints=[Endpoint(path="/test", method=HttpMethod.GET)])
+
+        spec = APISpec(
+            title="Test", version="1.0", endpoints=[Endpoint(path="/test", method=HttpMethod.GET)]
+        )
         export = self.adapter.export_collection(spec)
         assert "v2.1" in export.get("info", {}).get("schema", "")
 
     def test_export_preserves_endpoints(self):
         from api_chaos_agent.models.schema import APISpec, Endpoint
-        spec = APISpec(title="Test", version="1.0", endpoints=[
-            Endpoint(path="/users", method=HttpMethod.GET),
-            Endpoint(path="/users", method=HttpMethod.POST),
-        ])
+
+        spec = APISpec(
+            title="Test",
+            version="1.0",
+            endpoints=[
+                Endpoint(path="/users", method=HttpMethod.GET),
+                Endpoint(path="/users", method=HttpMethod.POST),
+            ],
+        )
         export = self.adapter.export_collection(spec)
         assert len(export.get("item", [])) == 2
 
     def test_roundtrip(self):
         collection = {
-            "info": {"name": "T", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"},
+            "info": {
+                "name": "T",
+                "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+            },
             "item": [
-                {"name": "Get Items", "request": {"method": "GET", "header": [], "url": {"raw": "https://api.example.com/items", "host": ["api", "example", "com"], "path": ["items"]}}, "response": []},
+                {
+                    "name": "Get Items",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "https://api.example.com/items",
+                            "host": ["api", "example", "com"],
+                            "path": ["items"],
+                        },
+                    },
+                    "response": [],
+                },
             ],
         }
         spec = self.adapter.import_collection(collection)

@@ -20,8 +20,8 @@ from unittest.mock import patch
 import pytest
 
 from api_chaos_agent.core.license import (
-    BSL_PROTECTED_MODULES,
     BSL_HEADER,
+    BSL_PROTECTED_MODULES,
     LicenseInfo,
     LicenseManager,
     LicenseStatus,
@@ -39,9 +39,12 @@ from api_chaos_agent.models.tenant import TenantPlan
 
 def _cleanup_env():
     for key in [
-        "API_CHAOS_AGENT_ENV", "NODE_ENV",
-        "API_CHAOS_AGENT_ORG_SIZE", "API_CHAOS_AGENT_ORG_REVENUE",
-        "API_CHAOS_AGENT_NONPROFIT", "API_CHAOS_AGENT_ACADEMIC",
+        "API_CHAOS_AGENT_ENV",
+        "NODE_ENV",
+        "API_CHAOS_AGENT_ORG_SIZE",
+        "API_CHAOS_AGENT_ORG_REVENUE",
+        "API_CHAOS_AGENT_NONPROFIT",
+        "API_CHAOS_AGENT_ACADEMIC",
         "API_CHAOS_AGENT_LICENSE_FILE",
     ]:
         os.environ.pop(key, None)
@@ -236,7 +239,9 @@ class TestLicenseKeyParsing:
         assert info is None
 
     def test_key_with_features(self):
-        key = _make_license_key(features=["distributed_execution", "custom_plugins", "cicd_integration"])
+        key = _make_license_key(
+            features=["distributed_execution", "custom_plugins", "cicd_integration"]
+        )
         info = _parse_license_key(key)
         assert info is not None
         assert "distributed_execution" in info.features
@@ -499,11 +504,13 @@ class TestLicenseManagerUnit:
         self.manager._license_info = None
         self.manager._last_check = 0.0
         from api_chaos_agent.core.exceptions import SecurityError
+
         with pytest.raises(SecurityError):
             self.manager.require_pro()
 
     def test_require_enterprise_raises_without_license(self):
         from api_chaos_agent.core.exceptions import SecurityError
+
         with pytest.raises(SecurityError):
             self.manager.require_enterprise()
 
@@ -521,6 +528,7 @@ class TestLicenseManagerUnit:
         key = _make_license_key(license_type="commercial_pro", plan="pro")
         self.manager.install_license(key)
         from api_chaos_agent.core.exceptions import SecurityError
+
         with pytest.raises(SecurityError):
             self.manager.require_enterprise()
 
@@ -623,7 +631,9 @@ class TestLicenseEdgeCases:
         assert info.status == LicenseStatus.VALID
 
     def test_trial_license_is_commercial(self):
-        info = LicenseInfo(license_type=LicenseType.TRIAL, status=LicenseStatus.VALID, plan=TenantPlan.PRO)
+        info = LicenseInfo(
+            license_type=LicenseType.TRIAL, status=LicenseStatus.VALID, plan=TenantPlan.PRO
+        )
         assert info.is_commercial is True
 
     def test_bsl_license_not_commercial(self):

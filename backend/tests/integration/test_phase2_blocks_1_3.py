@@ -12,8 +12,8 @@ import pytest
 
 from api_chaos_agent.models.distributed import WorkerCapabilities
 from api_chaos_agent.models.plugin import PluginStatus
-from api_chaos_agent.models.schema import ApiProtocol
 from api_chaos_agent.models.scenario import ChaosScenario, ChaosScenarioType, Endpoint
+from api_chaos_agent.models.schema import ApiProtocol
 from api_chaos_agent.services.distributed_engine import (
     DistributedExecutionEngine,
     TaskDistributor,
@@ -29,20 +29,24 @@ from api_chaos_agent.services.plugin_framework import PluginManager
 _DEFAULT_ENDPOINT = Endpoint(path="/api/test", method="GET")
 
 
-def _make_scenario(idx: int = 0, stype: ChaosScenarioType = ChaosScenarioType.LATENCY) -> ChaosScenario:
-    return ChaosScenario(id=f"s{idx}", name=f"scenario-{idx}", scenario_type=stype, endpoint=_DEFAULT_ENDPOINT)
+def _make_scenario(
+    idx: int = 0, stype: ChaosScenarioType = ChaosScenarioType.LATENCY
+) -> ChaosScenario:
+    return ChaosScenario(
+        id=f"s{idx}", name=f"scenario-{idx}", scenario_type=stype, endpoint=_DEFAULT_ENDPOINT
+    )
 
 
 class TestParserToDistributedIntegration:
     def test_grpc_spec_feeds_distributed_engine(self):
-        proto = '''
+        proto = """
 syntax = "proto3";
 package integration.test;
 service IntegrationService {
   rpc Method1 (Req) returns (Res) {}
   rpc Method2 (Req) returns (stream Res) {}
 }
-'''
+"""
         parser = GrpcSchemaParser()
         spec = parser.parse_text(proto)
         assert spec.protocol == ApiProtocol.GRPC
@@ -57,7 +61,7 @@ service IntegrationService {
         assert plan.total_workers == 2
 
     def test_graphql_spec_feeds_distributed_engine(self):
-        sdl = '''
+        sdl = """
 type Query {
   user(id: ID!): User
   posts: [Post]
@@ -66,7 +70,7 @@ type Query {
 type Mutation {
   createPost(title: String!): Post
 }
-'''
+"""
         parser = GraphQLSchemaParser()
         spec = parser.parse_text(sdl)
         assert spec.protocol == ApiProtocol.GRAPHQL
@@ -85,13 +89,13 @@ type Mutation {
         assert detect_protocol(graphql_file) == ApiProtocol.GRAPHQL
 
     def test_parser_output_compatible_with_scenario_creation(self):
-        proto = '''
+        proto = """
 syntax = "proto3";
 package compat;
 service CompatService {
   rpc Get (Req) returns (Res) {}
 }
-'''
+"""
         parser = GrpcSchemaParser()
         spec = parser.parse_text(proto)
         assert spec.protocol == ApiProtocol.GRPC
@@ -107,16 +111,19 @@ class TestPluginToDistributedIntegration:
         engine.registry.register(name="w1")
         manager = PluginManager()
         scenario = _make_scenario(0, ChaosScenarioType.RESOURCE_EXHAUSTION)
-        plugin_result = await manager.execute("resource_exhaustion", scenario, {"resource_type": "memory"})
+        plugin_result = await manager.execute(
+            "resource_exhaustion", scenario, {"resource_type": "memory"}
+        )
         assert plugin_result.success
         from api_chaos_agent.models.report import ExecutionConfig
+
         config = ExecutionConfig(base_url="http://test.local")
         with patch("api_chaos_agent.services.execution_engine.ExecutionEngine") as MockEngine:
             mock_instance = MagicMock()
             mock_instance.execute = AsyncMock(return_value=MagicMock(results=[]))
             MockEngine.return_value = mock_instance
             scenarios = [_make_scenario(i) for i in range(2)]
-            results = await engine.execute_distributed("plugin-dist-1", scenarios, config)
+            await engine.execute_distributed("plugin-dist-1", scenarios, config)
             plan = engine.get_plan("plugin-dist-1")
             assert plan is not None
 
@@ -126,7 +133,9 @@ class TestPluginToDistributedIntegration:
         worker = registry.register(name="plugin-worker")
         manager = PluginManager()
         scenario = _make_scenario(0, ChaosScenarioType.DATA_CORRUPTION)
-        plugin_result = await manager.execute("data_corruption", scenario, {"corruption_type": "encoding"})
+        plugin_result = await manager.execute(
+            "data_corruption", scenario, {"corruption_type": "encoding"}
+        )
         assert plugin_result.success
         registry.assign_task(worker.id, "task-1")
         assert worker.status.value == "running"
@@ -136,13 +145,13 @@ class TestPluginToDistributedIntegration:
 
 class TestParserToPluginIntegration:
     def test_grpc_scenarios_use_plugins(self):
-        proto = '''
+        proto = """
 syntax = "proto3";
 package plugin.test;
 service PluginService {
   rpc GetData (Req) returns (Res) {}
 }
-'''
+"""
         parser = GrpcSchemaParser()
         spec = parser.parse_text(proto)
         assert spec.protocol == ApiProtocol.GRPC
@@ -153,11 +162,11 @@ service PluginService {
 
     @pytest.mark.asyncio
     async def test_graphql_scenarios_use_plugins(self):
-        sdl = '''
+        sdl = """
 type Query {
   search(query: String!): [Result]
 }
-'''
+"""
         parser = GraphQLSchemaParser()
         spec = parser.parse_text(sdl)
         assert spec.protocol == ApiProtocol.GRAPHQL
@@ -170,7 +179,7 @@ type Query {
 class TestFullPipelineIntegration:
     @pytest.mark.asyncio
     async def test_parse_distribute_execute_pipeline(self):
-        proto = '''
+        proto = """
 syntax = "proto3";
 package pipeline.test;
 service PipelineService {
@@ -178,7 +187,7 @@ service PipelineService {
   rpc Stream (Req) returns (stream Res) {}
   rpc Upload (stream Req) returns (Res) {}
 }
-'''
+"""
         parser = GrpcSchemaParser()
         spec = parser.parse_text(proto)
         assert len(spec.grpc_services) == 1
@@ -195,27 +204,32 @@ service PipelineService {
         plugin_results = []
         for scenario in scenarios:
             if scenario.scenario_type == ChaosScenarioType.RESOURCE_EXHAUSTION:
-                r = await manager.execute("resource_exhaustion", scenario, {"resource_type": "memory"})
+                r = await manager.execute(
+                    "resource_exhaustion", scenario, {"resource_type": "memory"}
+                )
             elif scenario.scenario_type == ChaosScenarioType.NETWORK_PARTITION:
-                r = await manager.execute("network_partition", scenario, {"partition_type": "packet_loss"})
+                r = await manager.execute(
+                    "network_partition", scenario, {"partition_type": "packet_loss"}
+                )
             else:
                 r = MagicMock(success=True, output={"injected": True})
             plugin_results.append(r)
         assert all(r.success for r in plugin_results)
         from api_chaos_agent.models.report import ExecutionConfig
+
         config = ExecutionConfig(base_url="http://test.local")
         with patch("api_chaos_agent.services.execution_engine.ExecutionEngine") as MockEngine:
             mock_instance = MagicMock()
             mock_instance.execute = AsyncMock(return_value=MagicMock(results=[]))
             MockEngine.return_value = mock_instance
-            results = await engine.execute_distributed("pipeline-1", scenarios, config)
+            await engine.execute_distributed("pipeline-1", scenarios, config)
             plan = engine.get_plan("pipeline-1")
             assert plan is not None
             assert plan.total_scenarios == 3
 
     @pytest.mark.asyncio
     async def test_graphql_distribute_execute_pipeline(self):
-        sdl = '''
+        sdl = """
 type Query {
   getUser(id: ID!): User
   listUsers: [User]
@@ -225,7 +239,7 @@ type Mutation {
   createUser(name: String!): User
   deleteUser(id: ID!): Boolean
 }
-'''
+"""
         parser = GraphQLSchemaParser()
         spec = parser.parse_text(sdl)
         assert len(spec.graphql_operations) == 4
@@ -234,24 +248,25 @@ type Mutation {
         for i in range(3):
             engine.registry.register(name=f"w{i}")
         from api_chaos_agent.models.report import ExecutionConfig
+
         config = ExecutionConfig(base_url="http://test.local")
         with patch("api_chaos_agent.services.execution_engine.ExecutionEngine") as MockEngine:
             mock_instance = MagicMock()
             mock_instance.execute = AsyncMock(return_value=MagicMock(results=[]))
             MockEngine.return_value = mock_instance
-            results = await engine.execute_distributed("gql-pipeline-1", scenarios, config)
+            await engine.execute_distributed("gql-pipeline-1", scenarios, config)
             plan = engine.get_plan("gql-pipeline-1")
             assert plan.total_workers == 3
             assert plan.total_scenarios == 4
 
     def test_data_flow_parser_spec_to_scenario_to_plan(self):
-        proto = '''
+        proto = """
 syntax = "proto3";
 package dataflow;
 service DataFlowService {
   rpc Fetch (Req) returns (Res) {}
 }
-'''
+"""
         parser = GrpcSchemaParser()
         spec = parser.parse_text(proto)
         assert spec.protocol == ApiProtocol.GRPC
@@ -278,7 +293,7 @@ service DataFlowService {
         result_data = result.model_dump()
         assert "success" in result_data
         registry = WorkerRegistry()
-        worker = registry.register(name="w1")
+        registry.register(name="w1")
         distributor = TaskDistributor(registry)
         plan = distributor.create_plan("serial-1", [scenario])
         plan_data = plan.model_dump()
@@ -288,7 +303,7 @@ service DataFlowService {
 class TestIntegrationStress:
     @pytest.mark.asyncio
     async def test_high_volume_pipeline(self):
-        proto = '''
+        proto = """
 syntax = "proto3";
 package stress;
 service StressService {
@@ -296,7 +311,7 @@ service StressService {
   rpc Load2 (Req) returns (Res) {}
   rpc Load3 (Req) returns (stream Res) {}
 }
-'''
+"""
         parser = GrpcSchemaParser()
         spec = parser.parse_text(proto)
         assert len(spec.grpc_services[0].methods) == 3
@@ -305,13 +320,14 @@ service StressService {
         for i in range(5):
             engine.registry.register(name=f"w{i}")
         from api_chaos_agent.models.report import ExecutionConfig
+
         config = ExecutionConfig(base_url="http://test.local")
         with patch("api_chaos_agent.services.execution_engine.ExecutionEngine") as MockEngine:
             mock_instance = MagicMock()
             mock_instance.execute = AsyncMock(return_value=MagicMock(results=[]))
             MockEngine.return_value = mock_instance
             start = time.monotonic()
-            results = await engine.execute_distributed("stress-int-1", scenarios, config)
+            await engine.execute_distributed("stress-int-1", scenarios, config)
             elapsed = time.monotonic() - start
             assert elapsed < 5.0, f"High volume pipeline took {elapsed:.3f}s"
             plan = engine.get_plan("stress-int-1")
@@ -331,11 +347,12 @@ service StressService {
         plugin_results = await asyncio.gather(*plugin_tasks)
         assert all(r.success for r in plugin_results)
         from api_chaos_agent.models.report import ExecutionConfig
+
         config = ExecutionConfig(base_url="http://test.local")
         with patch("api_chaos_agent.services.execution_engine.ExecutionEngine") as MockEngine:
             mock_instance = MagicMock()
             mock_instance.execute = AsyncMock(return_value=MagicMock(results=[]))
             MockEngine.return_value = mock_instance
-            results = await engine.execute_distributed("conc-int-1", scenarios, config)
+            await engine.execute_distributed("conc-int-1", scenarios, config)
             plan = engine.get_plan("conc-int-1")
             assert plan is not None

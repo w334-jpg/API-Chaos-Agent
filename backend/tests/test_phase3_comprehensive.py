@@ -13,7 +13,6 @@ Must pass 5 consecutive rounds with zero errors and zero warnings.
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import pathlib
 import tempfile
@@ -21,30 +20,17 @@ import time
 
 import httpx
 import pytest
-import pytest_asyncio
 
 from api_chaos_agent.core.config import settings
-from api_chaos_agent.core.security import create_access_token, _decode_token
+from api_chaos_agent.core.security import _decode_token, create_access_token
 from api_chaos_agent.models.report import (
     ExecutionConfig,
-    ExecutionStatus,
-    Report,
-    ResponseData,
     ScenarioResult,
-    Severity,
     TestResult,
 )
 from api_chaos_agent.models.scenario import (
     ChaosScenario,
     ChaosScenarioType,
-)
-from api_chaos_agent.models.schema import (
-    APISpec,
-    Endpoint,
-    FieldConstraint,
-    FieldType,
-    HttpMethod,
-    RequestBody,
 )
 from api_chaos_agent.models.schema import (
     APISpec,
@@ -125,7 +111,9 @@ async def _run_full_pipeline(
         db_path = os.path.join(tmpdir, "pipeline.db")
         store = SQLiteStore(db_path=db_path)
     else:
-        store = InMemoryStore(max_schemas=100, max_scenarios=100, max_executions=100, max_reports=100, ttl_seconds=300)
+        store = InMemoryStore(
+            max_schemas=100, max_scenarios=100, max_executions=100, max_reports=100, ttl_seconds=300
+        )
         tmpdir = None
 
     try:
@@ -202,6 +190,7 @@ async def _run_full_pipeline(
             store.close()
             if tmpdir:
                 import shutil
+
                 shutil.rmtree(tmpdir, ignore_errors=True)
 
 
@@ -362,7 +351,9 @@ class TestComprehensiveRound3:
             async def handle_async_request(self, request):
                 raise httpx.ConnectError("Connection refused")
 
-        config = ExecutionConfig(base_url="http://testserver", concurrency=1, timeout_seconds=5.0, max_retries=0)
+        config = ExecutionConfig(
+            base_url="http://testserver", concurrency=1, timeout_seconds=5.0, max_retries=0
+        )
         engine = ExecutionEngine(config=config, transport=FailTransport())
         scenarios = [_make_scenario(ChaosScenarioType.ERROR_STATUS, config={"status_code": 500})]
         result = await engine.execute(scenarios)
@@ -374,7 +365,9 @@ class TestComprehensiveRound3:
             async def handle_async_request(self, request):
                 raise httpx.ReadTimeout("Read timed out")
 
-        config = ExecutionConfig(base_url="http://testserver", concurrency=1, timeout_seconds=1.0, max_retries=0)
+        config = ExecutionConfig(
+            base_url="http://testserver", concurrency=1, timeout_seconds=1.0, max_retries=0
+        )
         engine = ExecutionEngine(config=config, transport=TimeoutTransport())
         scenarios = [_make_scenario(ChaosScenarioType.ERROR_STATUS, config={"status_code": 500})]
         result = await engine.execute(scenarios)
@@ -426,11 +419,21 @@ class TestComprehensiveRound3:
 
     @pytest.mark.asyncio
     async def test_all_http_methods(self):
-        for method in [HttpMethod.GET, HttpMethod.POST, HttpMethod.PUT, HttpMethod.PATCH, HttpMethod.DELETE]:
-            config = ExecutionConfig(base_url="http://testserver", concurrency=1, timeout_seconds=5.0)
+        for method in [
+            HttpMethod.GET,
+            HttpMethod.POST,
+            HttpMethod.PUT,
+            HttpMethod.PATCH,
+            HttpMethod.DELETE,
+        ]:
+            config = ExecutionConfig(
+                base_url="http://testserver", concurrency=1, timeout_seconds=5.0
+            )
             engine = ExecutionEngine(config=config, transport=_MixedTransport())
             ep = _make_endpoint(method, "/resource")
-            scenario = _make_scenario(ChaosScenarioType.ERROR_STATUS, config={"status_code": 500}, endpoint=ep)
+            scenario = _make_scenario(
+                ChaosScenarioType.ERROR_STATUS, config={"status_code": 500}, endpoint=ep
+            )
             result = await engine.execute([scenario])
             assert result.total_scenarios == 1
 
@@ -438,7 +441,9 @@ class TestComprehensiveRound3:
     async def test_all_tamper_types(self):
         tamper_types = ["remove", "replace", "overflow", "type_mismatch", "inject"]
         for tt in tamper_types:
-            config = ExecutionConfig(base_url="http://testserver", concurrency=1, timeout_seconds=5.0)
+            config = ExecutionConfig(
+                base_url="http://testserver", concurrency=1, timeout_seconds=5.0
+            )
             engine = ExecutionEngine(config=config, transport=_MixedTransport())
             ep = _make_endpoint(
                 HttpMethod.POST,
@@ -481,6 +486,7 @@ class TestComprehensiveRound4:
     @pytest.mark.asyncio
     async def test_expired_token_rejected(self):
         import datetime as _dt
+
         from api_chaos_agent.core.exceptions import AuthenticationError
 
         token = create_access_token(subject="expired_user", expires_delta=_dt.timedelta(seconds=-1))
@@ -547,12 +553,18 @@ class TestComprehensiveRound4:
 class TestComprehensiveRound5:
     @pytest.mark.asyncio
     async def test_concurrent_pipeline_executions(self):
-        store = InMemoryStore(max_schemas=100, max_scenarios=100, max_executions=100, max_reports=100, ttl_seconds=300)
+        store = InMemoryStore(
+            max_schemas=100, max_scenarios=100, max_executions=100, max_reports=100, ttl_seconds=300
+        )
         config = ExecutionConfig(base_url="http://testserver", concurrency=10, timeout_seconds=5.0)
         engine = ExecutionEngine(config=config, transport=_MixedTransport())
 
         async def run_single_pipeline(i: int):
-            spec = APISpec(title=f"Concurrent_{i}", version="1.0", endpoints=[_make_endpoint(HttpMethod.GET, f"/api/{i}")])
+            spec = APISpec(
+                title=f"Concurrent_{i}",
+                version="1.0",
+                endpoints=[_make_endpoint(HttpMethod.GET, f"/api/{i}")],
+            )
             sid = await store.save_schema(spec)
             router = LLMRouter(config={"openai_api_key": "", "anthropic_api_key": ""})
             generator = ScenarioGenerator(llm_router=router)
@@ -577,7 +589,9 @@ class TestComprehensiveRound5:
         config = ExecutionConfig(base_url="http://testserver", concurrency=20, timeout_seconds=5.0)
         engine = ExecutionEngine(config=config, transport=_MixedTransport())
         scenarios = [
-            _make_scenario(ChaosScenarioType.ERROR_STATUS, config={"status_code": 500}, name=f"Scenario_{i}")
+            _make_scenario(
+                ChaosScenarioType.ERROR_STATUS, config={"status_code": 500}, name=f"Scenario_{i}"
+            )
             for i in range(20)
         ]
         result = await engine.execute(scenarios)
@@ -609,10 +623,15 @@ class TestComprehensiveRound5:
                 config={"field_path": "name", "tamper_type": "remove"},
                 endpoint=_make_endpoint(
                     HttpMethod.POST,
-                    request_body=RequestBody(fields=[FieldConstraint(field_name="name", field_type=FieldType.STRING)]),
+                    request_body=RequestBody(
+                        fields=[FieldConstraint(field_name="name", field_type=FieldType.STRING)]
+                    ),
                 ),
             ),
-            _make_scenario(ChaosScenarioType.RATE_LIMIT, config={"requests_per_second": 5, "duration_seconds": 1}),
+            _make_scenario(
+                ChaosScenarioType.RATE_LIMIT,
+                config={"requests_per_second": 5, "duration_seconds": 1},
+            ),
         ]
         result = await engine.execute(scenarios)
         assert result.total_scenarios == 4
@@ -626,5 +645,7 @@ class TestComprehensiveRound5:
 
     @pytest.mark.asyncio
     async def test_pipeline_with_error_transport(self):
-        result = await _run_full_pipeline(store_impl="memory", transport=_ErrorTransport(), spec_source="custom")
+        result = await _run_full_pipeline(
+            store_impl="memory", transport=_ErrorTransport(), spec_source="custom"
+        )
         assert result["vulnerabilities"] >= 1

@@ -3,21 +3,14 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import pytest
-import yaml
 
 from api_chaos_agent.models.schema import (
     APISpec,
-    Endpoint,
-    FieldConstraint,
     FieldType,
     HttpMethod,
-    Parameter,
-    RequestBody,
-    ResponseSpec,
 )
 from api_chaos_agent.services.schema_parser import SchemaParser
 
@@ -149,7 +142,9 @@ class TestExtractEndpoints:
     def test_path_parameter_is_required(self):
         parser = SchemaParser()
         result = parser.parse(str(PETSTORE_JSON))
-        get_pet = [e for e in result.endpoints if e.path == "/pets/{petId}" and e.method == HttpMethod.GET]
+        get_pet = [
+            e for e in result.endpoints if e.path == "/pets/{petId}" and e.method == HttpMethod.GET
+        ]
         pet_id_param = [p for p in get_pet[0].parameters if p.name == "petId"]
         assert len(pet_id_param) == 1
         assert pet_id_param[0].required is True
@@ -422,27 +417,35 @@ class TestRequestBody:
     def test_post_endpoint_has_request_body(self):
         parser = SchemaParser()
         result = parser.parse(str(PETSTORE_JSON))
-        post_pets = [e for e in result.endpoints if e.path == "/pets" and e.method == HttpMethod.POST]
+        post_pets = [
+            e for e in result.endpoints if e.path == "/pets" and e.method == HttpMethod.POST
+        ]
         assert len(post_pets) == 1
         assert post_pets[0].request_body is not None
 
     def test_request_body_content_type(self):
         parser = SchemaParser()
         result = parser.parse(str(PETSTORE_JSON))
-        post_pets = [e for e in result.endpoints if e.path == "/pets" and e.method == HttpMethod.POST]
+        post_pets = [
+            e for e in result.endpoints if e.path == "/pets" and e.method == HttpMethod.POST
+        ]
         assert post_pets[0].request_body.content_type == "application/json"
 
     def test_request_body_required(self):
         parser = SchemaParser()
         result = parser.parse(str(PETSTORE_JSON))
-        post_pets = [e for e in result.endpoints if e.path == "/pets" and e.method == HttpMethod.POST]
+        post_pets = [
+            e for e in result.endpoints if e.path == "/pets" and e.method == HttpMethod.POST
+        ]
         assert post_pets[0].request_body.required is True
 
     def test_request_body_fields_from_ref(self):
         """POST /pets references NewPet via $ref - fields should be resolved."""
         parser = SchemaParser()
         result = parser.parse(str(PETSTORE_JSON))
-        post_pets = [e for e in result.endpoints if e.path == "/pets" and e.method == HttpMethod.POST]
+        post_pets = [
+            e for e in result.endpoints if e.path == "/pets" and e.method == HttpMethod.POST
+        ]
         rb = post_pets[0].request_body
         field_names = {f.field_name for f in rb.fields}
         assert "name" in field_names
@@ -451,7 +454,9 @@ class TestRequestBody:
     def test_request_body_field_constraints(self):
         parser = SchemaParser()
         result = parser.parse(str(PETSTORE_JSON))
-        post_pets = [e for e in result.endpoints if e.path == "/pets" and e.method == HttpMethod.POST]
+        post_pets = [
+            e for e in result.endpoints if e.path == "/pets" and e.method == HttpMethod.POST
+        ]
         rb = post_pets[0].request_body
         name_field = [f for f in rb.fields if f.field_name == "name"][0]
         assert name_field.required is True
@@ -461,7 +466,9 @@ class TestRequestBody:
     def test_yaml_inline_request_body(self):
         parser = SchemaParser()
         result = parser.parse(str(PETSTORE_YAML))
-        post_users = [e for e in result.endpoints if e.path == "/users" and e.method == HttpMethod.POST]
+        post_users = [
+            e for e in result.endpoints if e.path == "/users" and e.method == HttpMethod.POST
+        ]
         rb = post_users[0].request_body
         assert rb is not None
         field_names = {f.field_name for f in rb.fields}
@@ -472,7 +479,9 @@ class TestRequestBody:
     def test_yaml_request_body_field_constraints(self):
         parser = SchemaParser()
         result = parser.parse(str(PETSTORE_YAML))
-        post_users = [e for e in result.endpoints if e.path == "/users" and e.method == HttpMethod.POST]
+        post_users = [
+            e for e in result.endpoints if e.path == "/users" and e.method == HttpMethod.POST
+        ]
         rb = post_users[0].request_body
         email_field = [f for f in rb.fields if f.field_name == "email"][0]
         assert email_field.format == "email"
@@ -531,7 +540,9 @@ class TestResponseSpecs:
     def test_multiple_responses(self):
         parser = SchemaParser()
         result = parser.parse(str(PETSTORE_JSON))
-        post_pets = [e for e in result.endpoints if e.path == "/pets" and e.method == HttpMethod.POST]
+        post_pets = [
+            e for e in result.endpoints if e.path == "/pets" and e.method == HttpMethod.POST
+        ]
         status_codes = {r.status_code for r in post_pets[0].responses}
         assert "201" in status_codes
         assert "400" in status_codes
@@ -540,7 +551,11 @@ class TestResponseSpecs:
         """Responses like 204 No Content have no content field."""
         parser = SchemaParser()
         result = parser.parse(str(PETSTORE_JSON))
-        delete_pet = [e for e in result.endpoints if e.path == "/pets/{petId}" and e.method == HttpMethod.DELETE]
+        delete_pet = [
+            e
+            for e in result.endpoints
+            if e.path == "/pets/{petId}" and e.method == HttpMethod.DELETE
+        ]
         resp_204 = [r for r in delete_pet[0].responses if r.status_code == "204"][0]
         assert resp_204.description == "Pet deleted"
         assert resp_204.content_type is None

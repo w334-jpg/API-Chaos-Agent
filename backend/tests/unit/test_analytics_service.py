@@ -7,22 +7,16 @@ Covers:
 - Stress tests: large report volumes, many tenants, concurrent access
 """
 
-import pytest
-import time
 import threading
+import time
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock
 
 from api_chaos_agent.models.analytics import (
-    AnalyticsSummary,
-    ComparisonResult,
-    EndpointRiskScore,
-    SeverityTrend,
     TrendPeriod,
 )
-from api_chaos_agent.models.report import Report, Finding, ReportSummary
+from api_chaos_agent.models.report import Finding, Report, ReportSummary
 from api_chaos_agent.models.scenario import Severity
-from api_chaos_agent.services.analytics_service import AnalyticsService, _SEVERITY_ORDER
+from api_chaos_agent.services.analytics_service import _SEVERITY_ORDER, AnalyticsService
 
 
 def _make_finding(
@@ -33,7 +27,7 @@ def _make_finding(
     description: str = "Test finding",
 ) -> Finding:
     return Finding(
-        scenario_id=f"sc-{int(time.monotonic()*1e6)}",
+        scenario_id=f"sc-{int(time.monotonic() * 1e6)}",
         scenario_name="Test Scenario",
         scenario_type=scenario_type,
         endpoint_path=path,
@@ -66,7 +60,7 @@ def _make_report(
                     details=v.get("description", "Test finding"),
                 )
             )
-    rid = report_id or f"report-{int(time.monotonic()*1e6)}"
+    rid = report_id or f"report-{int(time.monotonic() * 1e6)}"
     return Report(
         id=rid,
         schema_id="test-schema",
@@ -119,11 +113,13 @@ class TestAnalyticsServiceUnit:
         assert summary.trends == []
 
     def test_get_summary_single_report(self):
-        report = _make_report([
-            {"severity": "critical", "path": "/api/users"},
-            {"severity": "high", "path": "/api/orders"},
-            {"severity": "medium", "path": "/api/products"},
-        ])
+        report = _make_report(
+            [
+                {"severity": "critical", "path": "/api/users"},
+                {"severity": "high", "path": "/api/orders"},
+                {"severity": "medium", "path": "/api/products"},
+            ]
+        )
         self.service.store_report("t1", report)
         summary = self.service.get_summary("t1")
         assert summary.total_executions == 1
@@ -229,10 +225,7 @@ class TestEndpointRiskScoring:
         assert methods == {"GET", "POST"}
 
     def test_top_10_risk_endpoints_in_summary(self):
-        vulns = [
-            {"severity": "critical", "path": f"/api/ep{i}"}
-            for i in range(15)
-        ]
+        vulns = [{"severity": "critical", "path": f"/api/ep{i}"} for i in range(15)]
         report = _make_report(vulns)
         self.service.store_report("t1", report)
         summary = self.service.get_summary("t1")
@@ -316,13 +309,16 @@ class TestTrendComputation:
 
     def test_trend_total_equals_sum_of_severities(self):
         now = datetime(2025, 1, 15)
-        report = _make_report([
-            {"severity": "critical", "path": "/a"},
-            {"severity": "high", "path": "/b"},
-            {"severity": "medium", "path": "/c"},
-            {"severity": "low", "path": "/d"},
-            {"severity": "info", "path": "/e"},
-        ], generated_at=now)
+        report = _make_report(
+            [
+                {"severity": "critical", "path": "/a"},
+                {"severity": "high", "path": "/b"},
+                {"severity": "medium", "path": "/c"},
+                {"severity": "low", "path": "/d"},
+                {"severity": "info", "path": "/e"},
+            ],
+            generated_at=now,
+        )
         trends = self.service._compute_trends([report], TrendPeriod.DAILY)
         assert len(trends) == 1
         t = trends[0]
@@ -354,7 +350,10 @@ class TestPassRateComputation:
 
     def test_multiple_reports_aggregate(self):
         r1 = _make_report([{"severity": "high", "path": "/a"}], total_scenarios=10)
-        r2 = _make_report([{"severity": "high", "path": "/b"}, {"severity": "low", "path": "/c"}], total_scenarios=10)
+        r2 = _make_report(
+            [{"severity": "high", "path": "/b"}, {"severity": "low", "path": "/c"}],
+            total_scenarios=10,
+        )
         rate = self.service._compute_pass_rate([r1, r2])
         assert rate == 85.0
 
@@ -383,7 +382,15 @@ class TestAvgExecutionTime:
 
     def test_reports_with_vuln_rate(self):
         report = _make_report(
-            [{"severity": "high", "path": "/a", "method": "GET", "type": "latency", "description": "d"}],
+            [
+                {
+                    "severity": "high",
+                    "path": "/a",
+                    "method": "GET",
+                    "type": "latency",
+                    "description": "d",
+                }
+            ],
             total_scenarios=10,
         )
         avg = self.service._compute_avg_execution_time([report])
@@ -426,12 +433,14 @@ class TestRiskScoreComputation:
         assert self.service._compute_risk_score(report) == 0.0
 
     def test_mixed_severity_sum(self):
-        report = _make_report([
-            {"severity": "critical", "path": "/a"},
-            {"severity": "high", "path": "/b"},
-            {"severity": "medium", "path": "/c"},
-            {"severity": "low", "path": "/d"},
-        ])
+        report = _make_report(
+            [
+                {"severity": "critical", "path": "/a"},
+                {"severity": "high", "path": "/b"},
+                {"severity": "medium", "path": "/c"},
+                {"severity": "low", "path": "/d"},
+            ]
+        )
         assert self.service._compute_risk_score(report) == 25.0 + 10.0 + 3.0 + 1.0
 
     def test_risk_score_capped_at_100(self):
@@ -466,7 +475,13 @@ class TestFindingKeyMethods:
         assert len(keys) == 1
 
     def test_finding_to_dict(self):
-        f = _make_finding(path="/api/test", method="GET", severity="high", scenario_type="error_status", description="desc")
+        f = _make_finding(
+            path="/api/test",
+            method="GET",
+            severity="high",
+            scenario_type="error_status",
+            description="desc",
+        )
         d = self.service._finding_to_dict(f)
         assert d["endpoint"] == "GET /api/test"
         assert d["scenario_type"] == "error_status"
@@ -531,7 +546,9 @@ class TestCompareReports:
 
     def test_identical_reports(self):
         baseline = _make_report([{"severity": "high", "path": "/a", "type": "t1"}], report_id="r1")
-        comparison = _make_report([{"severity": "high", "path": "/a", "type": "t1"}], report_id="r2")
+        comparison = _make_report(
+            [{"severity": "high", "path": "/a", "type": "t1"}], report_id="r2"
+        )
         result = self.service.compare_reports(baseline, comparison)
         assert result.persistent_findings == 1
         assert result.new_findings == 0
@@ -539,27 +556,39 @@ class TestCompareReports:
         assert result.improved is True
 
     def test_improved_baseline_to_comparison(self):
-        baseline = _make_report([
-            {"severity": "critical", "path": "/a", "type": "t1"},
-            {"severity": "high", "path": "/b", "type": "t2"},
-        ], report_id="r1")
-        comparison = _make_report([
-            {"severity": "medium", "path": "/a", "type": "t1"},
-        ], report_id="r2")
+        baseline = _make_report(
+            [
+                {"severity": "critical", "path": "/a", "type": "t1"},
+                {"severity": "high", "path": "/b", "type": "t2"},
+            ],
+            report_id="r1",
+        )
+        comparison = _make_report(
+            [
+                {"severity": "medium", "path": "/a", "type": "t1"},
+            ],
+            report_id="r2",
+        )
         result = self.service.compare_reports(baseline, comparison)
         assert result.resolved_findings >= 1
         assert result.improved is True
         assert result.risk_score_delta < 0
 
     def test_regressed_comparison(self):
-        baseline = _make_report([
-            {"severity": "low", "path": "/a", "type": "t1"},
-        ], report_id="r1")
-        comparison = _make_report([
-            {"severity": "low", "path": "/a", "type": "t1"},
-            {"severity": "critical", "path": "/b", "type": "t2"},
-            {"severity": "high", "path": "/c", "type": "t3"},
-        ], report_id="r2")
+        baseline = _make_report(
+            [
+                {"severity": "low", "path": "/a", "type": "t1"},
+            ],
+            report_id="r1",
+        )
+        comparison = _make_report(
+            [
+                {"severity": "low", "path": "/a", "type": "t1"},
+                {"severity": "critical", "path": "/b", "type": "t2"},
+                {"severity": "high", "path": "/c", "type": "t3"},
+            ],
+            report_id="r2",
+        )
         result = self.service.compare_reports(baseline, comparison)
         assert result.new_findings >= 2
         assert result.improved is False
@@ -567,19 +596,25 @@ class TestCompareReports:
 
     def test_completely_new_findings(self):
         baseline = _make_report([], report_id="r1")
-        comparison = _make_report([
-            {"severity": "critical", "path": "/a", "type": "t1"},
-        ], report_id="r2")
+        comparison = _make_report(
+            [
+                {"severity": "critical", "path": "/a", "type": "t1"},
+            ],
+            report_id="r2",
+        )
         result = self.service.compare_reports(baseline, comparison)
         assert result.new_findings == 1
         assert result.resolved_findings == 0
         assert result.persistent_findings == 0
 
     def test_all_resolved(self):
-        baseline = _make_report([
-            {"severity": "high", "path": "/a", "type": "t1"},
-            {"severity": "medium", "path": "/b", "type": "t2"},
-        ], report_id="r1")
+        baseline = _make_report(
+            [
+                {"severity": "high", "path": "/a", "type": "t1"},
+                {"severity": "medium", "path": "/b", "type": "t2"},
+            ],
+            report_id="r1",
+        )
         comparison = _make_report([], report_id="r2")
         result = self.service.compare_reports(baseline, comparison)
         assert result.resolved_findings == 2
@@ -595,9 +630,18 @@ class TestCompareReports:
 
     def test_new_vulnerability_details_populated(self):
         baseline = _make_report([], report_id="r1")
-        comparison = _make_report([
-            {"severity": "critical", "path": "/api/pay", "method": "POST", "type": "error_status", "description": "Payment fails"},
-        ], report_id="r2")
+        comparison = _make_report(
+            [
+                {
+                    "severity": "critical",
+                    "path": "/api/pay",
+                    "method": "POST",
+                    "type": "error_status",
+                    "description": "Payment fails",
+                },
+            ],
+            report_id="r2",
+        )
         result = self.service.compare_reports(baseline, comparison)
         assert len(result.new_vulnerability_details) == 1
         detail = result.new_vulnerability_details[0]
@@ -605,30 +649,45 @@ class TestCompareReports:
         assert detail["severity"] == "critical"
 
     def test_resolved_vulnerability_details_populated(self):
-        baseline = _make_report([
-            {"severity": "high", "path": "/api/old", "type": "t1"},
-        ], report_id="r1")
+        baseline = _make_report(
+            [
+                {"severity": "high", "path": "/api/old", "type": "t1"},
+            ],
+            report_id="r1",
+        )
         comparison = _make_report([], report_id="r2")
         result = self.service.compare_reports(baseline, comparison)
         assert len(result.resolved_vulnerability_details) == 1
 
     def test_risk_score_delta_calculation(self):
-        baseline = _make_report([
-            {"severity": "critical", "path": "/a", "type": "t1"},
-        ], report_id="r1")
-        comparison = _make_report([
-            {"severity": "low", "path": "/a", "type": "t1"},
-        ], report_id="r2")
+        baseline = _make_report(
+            [
+                {"severity": "critical", "path": "/a", "type": "t1"},
+            ],
+            report_id="r1",
+        )
+        comparison = _make_report(
+            [
+                {"severity": "low", "path": "/a", "type": "t1"},
+            ],
+            report_id="r2",
+        )
         result = self.service.compare_reports(baseline, comparison)
         assert result.risk_score_delta == 1.0 - 25.0
 
     def test_same_risk_score_improved_true(self):
-        baseline = _make_report([
-            {"severity": "high", "path": "/a", "type": "t1"},
-        ], report_id="r1")
-        comparison = _make_report([
-            {"severity": "high", "path": "/a", "type": "t1"},
-        ], report_id="r2")
+        baseline = _make_report(
+            [
+                {"severity": "high", "path": "/a", "type": "t1"},
+            ],
+            report_id="r1",
+        )
+        comparison = _make_report(
+            [
+                {"severity": "high", "path": "/a", "type": "t1"},
+            ],
+            report_id="r2",
+        )
         result = self.service.compare_reports(baseline, comparison)
         assert result.improved is True
         assert result.risk_score_delta == 0.0
@@ -667,13 +726,17 @@ class TestAnalyticsEdgeCases:
         assert summary.avg_execution_time_ms == 0.0
 
     def test_single_finding_all_fields(self):
-        report = _make_report([{
-            "severity": "critical",
-            "path": "/api/important",
-            "method": "DELETE",
-            "type": "network_partition",
-            "description": "Critical network partition detected",
-        }])
+        report = _make_report(
+            [
+                {
+                    "severity": "critical",
+                    "path": "/api/important",
+                    "method": "DELETE",
+                    "type": "network_partition",
+                    "description": "Critical network partition detected",
+                }
+            ]
+        )
         self.service.store_report("t1", report)
         summary = self.service.get_summary("t1")
         assert summary.total_vulnerabilities == 1
@@ -692,19 +755,25 @@ class TestAnalyticsEdgeCases:
 
     def test_compare_empty_baseline_with_findings(self):
         baseline = _make_report([], report_id="empty")
-        comparison = _make_report([
-            {"severity": "critical", "path": "/a", "type": "t1"},
-            {"severity": "high", "path": "/b", "type": "t2"},
-        ], report_id="full")
+        comparison = _make_report(
+            [
+                {"severity": "critical", "path": "/a", "type": "t1"},
+                {"severity": "high", "path": "/b", "type": "t2"},
+            ],
+            report_id="full",
+        )
         result = self.service.compare_reports(baseline, comparison)
         assert result.new_findings == 2
         assert result.resolved_findings == 0
         assert result.improved is False
 
     def test_compare_findings_with_empty(self):
-        baseline = _make_report([
-            {"severity": "critical", "path": "/a", "type": "t1"},
-        ], report_id="full")
+        baseline = _make_report(
+            [
+                {"severity": "critical", "path": "/a", "type": "t1"},
+            ],
+            report_id="full",
+        )
         comparison = _make_report([], report_id="empty")
         result = self.service.compare_reports(baseline, comparison)
         assert result.resolved_findings == 1
@@ -730,13 +799,15 @@ class TestAnalyticsEdgeCases:
         assert summary.pass_rate < 0.0 or summary.pass_rate >= 0.0
 
     def test_all_severity_types_in_distribution(self):
-        report = _make_report([
-            {"severity": "critical", "path": "/a"},
-            {"severity": "high", "path": "/b"},
-            {"severity": "medium", "path": "/c"},
-            {"severity": "low", "path": "/d"},
-            {"severity": "info", "path": "/e"},
-        ])
+        report = _make_report(
+            [
+                {"severity": "critical", "path": "/a"},
+                {"severity": "high", "path": "/b"},
+                {"severity": "medium", "path": "/c"},
+                {"severity": "low", "path": "/d"},
+                {"severity": "info", "path": "/e"},
+            ]
+        )
         self.service.store_report("t1", report)
         summary = self.service.get_summary("t1")
         assert summary.severity_distribution["critical"] == 1
@@ -753,14 +824,24 @@ class TestAnalyticsFunctional:
         self.service = AnalyticsService()
 
     def test_full_analytics_workflow(self):
-        r1 = _make_report([
-            {"severity": "critical", "path": "/api/users", "type": "latency_injection"},
-            {"severity": "high", "path": "/api/orders", "type": "error_status"},
-        ], exec_time_ms=150.0, total_scenarios=20, report_id="r1")
-        r2 = _make_report([
-            {"severity": "high", "path": "/api/users", "type": "latency_injection"},
-            {"severity": "medium", "path": "/api/products", "type": "rate_limit"},
-        ], exec_time_ms=200.0, total_scenarios=20, report_id="r2")
+        r1 = _make_report(
+            [
+                {"severity": "critical", "path": "/api/users", "type": "latency_injection"},
+                {"severity": "high", "path": "/api/orders", "type": "error_status"},
+            ],
+            exec_time_ms=150.0,
+            total_scenarios=20,
+            report_id="r1",
+        )
+        r2 = _make_report(
+            [
+                {"severity": "high", "path": "/api/users", "type": "latency_injection"},
+                {"severity": "medium", "path": "/api/products", "type": "rate_limit"},
+            ],
+            exec_time_ms=200.0,
+            total_scenarios=20,
+            report_id="r2",
+        )
         self.service.store_report("tenant-1", r1)
         self.service.store_report("tenant-1", r2)
         summary = self.service.get_summary("tenant-1")
@@ -773,16 +854,22 @@ class TestAnalyticsFunctional:
         assert summary.top_risk_endpoints[0].endpoint_path == "/api/users"
 
     def test_comparison_workflow(self):
-        baseline = _make_report([
-            {"severity": "critical", "path": "/api/pay", "type": "t1"},
-            {"severity": "high", "path": "/api/auth", "type": "t2"},
-            {"severity": "medium", "path": "/api/data", "type": "t3"},
-        ], report_id="baseline")
-        current = _make_report([
-            {"severity": "high", "path": "/api/pay", "type": "t1"},
-            {"severity": "medium", "path": "/api/data", "type": "t3"},
-            {"severity": "low", "path": "/api/new", "type": "t4"},
-        ], report_id="current")
+        baseline = _make_report(
+            [
+                {"severity": "critical", "path": "/api/pay", "type": "t1"},
+                {"severity": "high", "path": "/api/auth", "type": "t2"},
+                {"severity": "medium", "path": "/api/data", "type": "t3"},
+            ],
+            report_id="baseline",
+        )
+        current = _make_report(
+            [
+                {"severity": "high", "path": "/api/pay", "type": "t1"},
+                {"severity": "medium", "path": "/api/data", "type": "t3"},
+                {"severity": "low", "path": "/api/new", "type": "t4"},
+            ],
+            report_id="current",
+        )
         result = self.service.compare_reports(baseline, current)
         assert result.resolved_findings == 1
         assert result.new_findings == 1
@@ -791,9 +878,12 @@ class TestAnalyticsFunctional:
 
     def test_multi_tenant_analytics(self):
         for i in range(5):
-            report = _make_report([
-                {"severity": "high", "path": f"/api/tenant{i}"},
-            ], total_scenarios=10)
+            report = _make_report(
+                [
+                    {"severity": "high", "path": f"/api/tenant{i}"},
+                ],
+                total_scenarios=10,
+            )
             self.service.store_report(f"tenant-{i}", report)
         for i in range(5):
             summary = self.service.get_summary(f"tenant-{i}")
@@ -813,13 +903,17 @@ class TestAnalyticsFunctional:
 
     def test_risk_score_delta_positive_means_regression(self):
         baseline = _make_report([{"severity": "low", "path": "/a", "type": "t1"}], report_id="b")
-        comparison = _make_report([{"severity": "critical", "path": "/a", "type": "t1"}], report_id="c")
+        comparison = _make_report(
+            [{"severity": "critical", "path": "/a", "type": "t1"}], report_id="c"
+        )
         result = self.service.compare_reports(baseline, comparison)
         assert result.risk_score_delta > 0
         assert result.improved is False
 
     def test_risk_score_delta_negative_means_improvement(self):
-        baseline = _make_report([{"severity": "critical", "path": "/a", "type": "t1"}], report_id="b")
+        baseline = _make_report(
+            [{"severity": "critical", "path": "/a", "type": "t1"}], report_id="b"
+        )
         comparison = _make_report([{"severity": "low", "path": "/a", "type": "t1"}], report_id="c")
         result = self.service.compare_reports(baseline, comparison)
         assert result.risk_score_delta < 0
@@ -833,9 +927,12 @@ class TestAnalyticsStress:
         service = AnalyticsService()
         start = time.monotonic()
         for i in range(500):
-            report = _make_report([
-                {"severity": "high", "path": f"/api/ep{i % 50}"},
-            ], total_scenarios=10)
+            report = _make_report(
+                [
+                    {"severity": "high", "path": f"/api/ep{i % 50}"},
+                ],
+                total_scenarios=10,
+            )
             service.store_report("t1", report)
         summary = service.get_summary("t1")
         elapsed = time.monotonic() - start
@@ -869,7 +966,9 @@ class TestAnalyticsStress:
     def test_compare_large_reports(self):
         service = AnalyticsService()
         vulns_b = [{"severity": "high", "path": f"/api/ep{i}", "type": f"t{i}"} for i in range(100)]
-        vulns_c = [{"severity": "critical", "path": f"/api/ep{i}", "type": f"t{i}"} for i in range(50)]
+        vulns_c = [
+            {"severity": "critical", "path": f"/api/ep{i}", "type": f"t{i}"} for i in range(50)
+        ]
         baseline = _make_report(vulns_b, report_id="big-baseline")
         comparison = _make_report(vulns_c, report_id="big-comparison")
         start = time.monotonic()
@@ -891,10 +990,7 @@ class TestAnalyticsStress:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=writer, args=(f"t{i % 3}", 20))
-            for i in range(10)
-        ]
+        threads = [threading.Thread(target=writer, args=(f"t{i % 3}", 20)) for i in range(10)]
         for t in threads:
             t.start()
         for t in threads:
@@ -906,10 +1002,7 @@ class TestAnalyticsStress:
 
     def test_endpoint_risk_with_many_endpoints(self):
         service = AnalyticsService()
-        findings = [
-            _make_finding(path=f"/api/ep{i}", severity="high")
-            for i in range(100)
-        ]
+        findings = [_make_finding(path=f"/api/ep{i}", severity="high") for i in range(100)]
         start = time.monotonic()
         risks = service._compute_endpoint_risks(findings)
         elapsed = time.monotonic() - start

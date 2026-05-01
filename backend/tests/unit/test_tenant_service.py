@@ -5,8 +5,6 @@ Covers: unit tests, functional tests, edge cases, stress tests.
 
 import time
 
-import pytest
-
 from api_chaos_agent.models.tenant import (
     ENTERPRISE_QUOTA,
     PRO_QUOTA,
@@ -160,7 +158,9 @@ class TestTeamMemberManagement:
         assert members[0].role == TeamMemberRole.OWNER
 
     def test_add_member(self):
-        member = self.service.add_member(self.tenant.id, "user@test.com", TeamMemberRole.MEMBER, "Test User")
+        member = self.service.add_member(
+            self.tenant.id, "user@test.com", TeamMemberRole.MEMBER, "Test User"
+        )
         assert member is not None
         assert member.user_email == "user@test.com"
         assert member.display_name == "Test User"
@@ -212,7 +212,9 @@ class TestTeamMemberManagement:
         assert not self.service.update_member_role(self.tenant.id, owner.id, TeamMemberRole.MEMBER)
 
     def test_update_nonexistent_member(self):
-        assert not self.service.update_member_role(self.tenant.id, "nonexistent", TeamMemberRole.ADMIN)
+        assert not self.service.update_member_role(
+            self.tenant.id, "nonexistent", TeamMemberRole.ADMIN
+        )
 
     def test_list_members(self):
         self.service.add_member(self.tenant.id, "a@test.com")

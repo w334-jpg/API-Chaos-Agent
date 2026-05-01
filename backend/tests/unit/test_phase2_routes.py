@@ -22,17 +22,13 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from api_chaos_agent.main import app
 from api_chaos_agent.core.license import (
-    LicenseInfo,
-    LicenseManager,
-    LicenseStatus,
-    LicenseType,
     _LICENSE_FILE_PATHS,
-    generate_trial_license,
+    LicenseManager,
     _generate_signature,
+    generate_trial_license,
 )
-from api_chaos_agent.models.tenant import TenantPlan
+from api_chaos_agent.main import app
 
 
 @pytest.fixture(autouse=True)
@@ -87,7 +83,6 @@ def _make_license_key(license_type: str = "commercial_pro", plan: str = "pro") -
 
 
 class TestLicenseRouter:
-
     def test_get_license_info_default(self, client):
         resp = client.get("/license/info")
         assert resp.status_code == 200
@@ -163,7 +158,6 @@ class TestLicenseRouter:
 
 
 class TestPlansRouter:
-
     def test_list_features_default_free(self, client):
         resp = client.get("/plans/features")
         assert resp.status_code == 200
@@ -200,40 +194,54 @@ class TestPlansRouter:
             assert "quota" in plan_data
 
     def test_check_feature_available(self, client):
-        resp = client.get("/plans/check-feature", params={"feature": "distributed_execution", "plan": "pro"})
+        resp = client.get(
+            "/plans/check-feature", params={"feature": "distributed_execution", "plan": "pro"}
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["available"] is True
 
     def test_check_feature_not_available(self, client):
-        resp = client.get("/plans/check-feature", params={"feature": "distributed_execution", "plan": "free"})
+        resp = client.get(
+            "/plans/check-feature", params={"feature": "distributed_execution", "plan": "free"}
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["available"] is False
 
     def test_check_feature_invalid_plan(self, client):
-        resp = client.get("/plans/check-feature", params={"feature": "distributed_execution", "plan": "invalid"})
+        resp = client.get(
+            "/plans/check-feature", params={"feature": "distributed_execution", "plan": "invalid"}
+        )
         assert resp.status_code == 400
 
     def test_check_quota_within_limit(self, client):
-        resp = client.get("/plans/check-quota", params={"resource": "max_schemas", "current_usage": 5, "plan": "free"})
+        resp = client.get(
+            "/plans/check-quota",
+            params={"resource": "max_schemas", "current_usage": 5, "plan": "free"},
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["within_limit"] is True
 
     def test_check_quota_exceeded(self, client):
-        resp = client.get("/plans/check-quota", params={"resource": "max_schemas", "current_usage": 15, "plan": "free"})
+        resp = client.get(
+            "/plans/check-quota",
+            params={"resource": "max_schemas", "current_usage": 15, "plan": "free"},
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["within_limit"] is False
 
     def test_check_quota_invalid_plan(self, client):
-        resp = client.get("/plans/check-quota", params={"resource": "max_schemas", "current_usage": 5, "plan": "gold"})
+        resp = client.get(
+            "/plans/check-quota",
+            params={"resource": "max_schemas", "current_usage": 5, "plan": "gold"},
+        )
         assert resp.status_code == 400
 
 
 class TestTenantsRouter:
-
     def test_create_tenant(self, client):
         resp = client.post("/api/v2/tenants", params={"name": "TestOrg"})
         assert resp.status_code == 200
@@ -292,7 +300,9 @@ class TestTenantsRouter:
     def test_check_tenant_quota(self, client):
         create_resp = client.post("/api/v2/tenants", params={"name": "QuotaOrg"})
         tenant_id = create_resp.json()["id"]
-        resp = client.get(f"/api/v2/tenants/{tenant_id}/quota", params={"resource": "max_schemas", "current": 5})
+        resp = client.get(
+            f"/api/v2/tenants/{tenant_id}/quota", params={"resource": "max_schemas", "current": 5}
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert "allowed" in data
@@ -391,7 +401,6 @@ class TestTenantsRouter:
 
 
 class TestPluginsRouter:
-
     def test_list_plugins_empty(self, client):
         resp = client.get("/api/v2/plugins")
         assert resp.status_code == 200
@@ -418,19 +427,22 @@ class TestPluginsRouter:
         assert resp.status_code in (400, 404, 500)
 
     def test_load_from_nonexistent_directory(self, client):
-        resp = client.post("/api/v2/plugins/load/directory", params={"directory": "/nonexistent/path"})
+        resp = client.post(
+            "/api/v2/plugins/load/directory", params={"directory": "/nonexistent/path"}
+        )
         assert resp.status_code in (200, 403)
         if resp.status_code == 200:
             data = resp.json()
             assert data["loaded"] == 0
 
     def test_load_from_invalid_entrypoint(self, client):
-        resp = client.post("/api/v2/plugins/load/entrypoint", params={"module_path": "nonexistent.module:Plugin"})
+        resp = client.post(
+            "/api/v2/plugins/load/entrypoint", params={"module_path": "nonexistent.module:Plugin"}
+        )
         assert resp.status_code == 400
 
 
 class TestCicdRouter:
-
     def _create_pipeline(self, client, name="test-pipeline", provider="github_actions"):
         return client.post(
             "/api/v2/cicd/pipelines",
@@ -528,7 +540,6 @@ class TestCicdRouter:
 
 
 class TestDistributedRouter:
-
     def test_register_worker(self, client):
         resp = client.post(
             "/api/v2/distributed/workers/register",
@@ -558,7 +569,9 @@ class TestDistributedRouter:
         assert resp.status_code == 404
 
     def test_worker_heartbeat(self, client):
-        create_resp = client.post("/api/v2/distributed/workers/register", params={"name": "hb-worker"})
+        create_resp = client.post(
+            "/api/v2/distributed/workers/register", params={"name": "hb-worker"}
+        )
         worker_id = create_resp.json()["id"]
         resp = client.post(f"/api/v2/distributed/workers/{worker_id}/heartbeat")
         assert resp.status_code == 200
@@ -574,7 +587,6 @@ class TestDistributedRouter:
 
 
 class TestAnalyticsRouter:
-
     def test_get_analytics_summary(self, client):
         resp = client.get("/api/v2/analytics/summary/test-tenant")
         assert resp.status_code == 200
@@ -597,9 +609,8 @@ class TestAnalyticsRouter:
 
 
 class TestSchemasV2Router:
-
     def test_parse_grpc_schema(self, client):
-        proto_content = b'''
+        proto_content = b"""
 syntax = "proto3";
 
 package test;
@@ -628,7 +639,7 @@ message UserList {
     repeated User users = 1;
     int32 total = 2;
 }
-'''
+"""
         resp = client.post(
             "/api/v2/schemas/parse",
             files={"file": ("test.proto", io.BytesIO(proto_content), "text/plain")},
@@ -638,7 +649,7 @@ message UserList {
         assert "endpoints" in data
 
     def test_parse_graphql_schema(self, client):
-        graphql_content = b'''
+        graphql_content = b"""
 type Query {
     user(id: ID!): User
     users: [User]
@@ -664,7 +675,7 @@ input UpdateUserInput {
     name: String
     email: String
 }
-'''
+"""
         resp = client.post(
             "/api/v2/schemas/parse",
             files={"file": ("schema.graphql", io.BytesIO(graphql_content), "text/plain")},
@@ -674,7 +685,9 @@ input UpdateUserInput {
         assert "endpoints" in data
 
     def test_parse_openapi_rejected(self, client):
-        openapi_content = json.dumps({"openapi": "3.0.0", "info": {"title": "Test", "version": "1.0"}}).encode()
+        openapi_content = json.dumps(
+            {"openapi": "3.0.0", "info": {"title": "Test", "version": "1.0"}}
+        ).encode()
         resp = client.post(
             "/api/v2/schemas/parse",
             files={"file": ("openapi.json", io.BytesIO(openapi_content), "application/json")},
@@ -690,7 +703,7 @@ input UpdateUserInput {
         assert resp.status_code == 200
 
     def test_parse_graphql_direct(self, client):
-        graphql_content = b'type Query { hello: String }'
+        graphql_content = b"type Query { hello: String }"
         resp = client.post(
             "/api/v2/schemas/parse/graphql",
             files={"file": ("schema.graphql", io.BytesIO(graphql_content), "text/plain")},
@@ -713,7 +726,6 @@ input UpdateUserInput {
 
 
 class TestPhase2HealthAndAuth:
-
     def test_health_check(self, client):
         resp = client.get("/health")
         assert resp.status_code == 200
@@ -734,7 +746,6 @@ class TestPhase2HealthAndAuth:
 
 
 class TestRouterStress:
-
     def test_concurrent_tenant_creation(self, client):
         errors = []
 
@@ -775,7 +786,9 @@ class TestRouterStress:
     def test_rapid_feature_checks(self, client):
         start = time.monotonic()
         for _ in range(100):
-            resp = client.get("/plans/check-feature", params={"feature": "distributed_execution", "plan": "pro"})
+            resp = client.get(
+                "/plans/check-feature", params={"feature": "distributed_execution", "plan": "pro"}
+            )
             assert resp.status_code == 200
         elapsed = time.monotonic() - start
         assert elapsed < 10.0, f"100 feature checks took {elapsed:.2f}s"
@@ -783,7 +796,10 @@ class TestRouterStress:
     def test_rapid_quota_checks(self, client):
         start = time.monotonic()
         for _ in range(100):
-            resp = client.get("/plans/check-quota", params={"resource": "max_schemas", "current_usage": 5, "plan": "free"})
+            resp = client.get(
+                "/plans/check-quota",
+                params={"resource": "max_schemas", "current_usage": 5, "plan": "free"},
+            )
             assert resp.status_code == 200
         elapsed = time.monotonic() - start
         assert elapsed < 10.0, f"100 quota checks took {elapsed:.2f}s"

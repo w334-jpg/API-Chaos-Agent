@@ -12,7 +12,8 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from api_chaos_agent.models.report import ExecutionConfig, ResponseData, Severity
+from api_chaos_agent.models.report import ExecutionConfig, Severity
+from api_chaos_agent.models.scenario import ChaosScenario, ChaosScenarioType
 from api_chaos_agent.models.schema import (
     APISpec,
     Endpoint,
@@ -21,12 +22,11 @@ from api_chaos_agent.models.schema import (
     HttpMethod,
     RequestBody,
 )
-from api_chaos_agent.models.scenario import ChaosScenario, ChaosScenarioType
 from api_chaos_agent.services.execution_engine import ExecutionEngine
-from api_chaos_agent.services.llm_router import LLMRouter, TaskComplexity
+from api_chaos_agent.services.llm_router import LLMRouter
 from api_chaos_agent.services.report_generator import ReportGenerator
-from api_chaos_agent.services.schema_parser import SchemaParser
 from api_chaos_agent.services.scenario_generator import ScenarioGenerator
+from api_chaos_agent.services.schema_parser import SchemaParser
 
 FIXTURES_DIR = pathlib.Path(__file__).parent / "fixtures"
 PETSTORE_JSON = FIXTURES_DIR / "petstore_openapi.json"
@@ -49,7 +49,6 @@ MOCK_TRANSPORT = httpx.MockTransport(_mock_handler)
 
 
 class TestSchemaParserScenarioGeneratorBlock:
-
     @pytest.mark.asyncio
     async def test_parse_json_then_generate_scenarios(self):
         parser = SchemaParser()
@@ -120,7 +119,6 @@ class TestSchemaParserScenarioGeneratorBlock:
 
 
 class TestScenarioGeneratorExecutionEngineBlock:
-
     def _make_endpoint(self, method=HttpMethod.GET, path="/test", body=None):
         return Endpoint(path=path, method=method, summary="Test endpoint", request_body=body)
 
@@ -131,7 +129,9 @@ class TestScenarioGeneratorExecutionEngineBlock:
         scenario = generator._latency_scenarios(endpoint)[0]
         assert scenario is not None
 
-        config = ExecutionConfig(base_url="https://api.example.com", concurrency=1, timeout_seconds=5)
+        config = ExecutionConfig(
+            base_url="https://api.example.com", concurrency=1, timeout_seconds=5
+        )
         engine = ExecutionEngine(config, transport=MOCK_TRANSPORT)
         result = await engine.execute([scenario])
         assert result.total_scenarios == 1
@@ -143,7 +143,9 @@ class TestScenarioGeneratorExecutionEngineBlock:
         scenario = generator._error_status_scenarios(endpoint)[0]
         assert scenario is not None
 
-        config = ExecutionConfig(base_url="https://api.example.com", concurrency=1, timeout_seconds=5)
+        config = ExecutionConfig(
+            base_url="https://api.example.com", concurrency=1, timeout_seconds=5
+        )
         engine = ExecutionEngine(config, transport=MOCK_TRANSPORT)
         result = await engine.execute([scenario])
         assert result.total_scenarios == 1
@@ -160,7 +162,9 @@ class TestScenarioGeneratorExecutionEngineBlock:
         scenario = generator._tampering_scenarios(endpoint)[0]
         assert scenario is not None
 
-        config = ExecutionConfig(base_url="https://api.example.com", concurrency=1, timeout_seconds=5)
+        config = ExecutionConfig(
+            base_url="https://api.example.com", concurrency=1, timeout_seconds=5
+        )
         engine = ExecutionEngine(config, transport=MOCK_TRANSPORT)
         result = await engine.execute([scenario])
         assert result.total_scenarios == 1
@@ -172,7 +176,9 @@ class TestScenarioGeneratorExecutionEngineBlock:
         scenario = generator._rate_limit_scenarios(endpoint)[0]
         assert scenario is not None
 
-        config = ExecutionConfig(base_url="https://api.example.com", concurrency=1, timeout_seconds=5)
+        config = ExecutionConfig(
+            base_url="https://api.example.com", concurrency=1, timeout_seconds=5
+        )
         engine = ExecutionEngine(config, transport=MOCK_TRANSPORT)
         result = await engine.execute([scenario])
         assert result.total_scenarios == 1
@@ -187,7 +193,9 @@ class TestScenarioGeneratorExecutionEngineBlock:
             generator._rate_limit_scenarios(endpoint)[0],
         ]
 
-        config = ExecutionConfig(base_url="https://api.example.com", concurrency=1, timeout_seconds=5)
+        config = ExecutionConfig(
+            base_url="https://api.example.com", concurrency=1, timeout_seconds=5
+        )
         engine = ExecutionEngine(config, transport=MOCK_TRANSPORT)
         result = await engine.execute(all_scenarios)
         assert result.total_scenarios == 3
@@ -196,7 +204,6 @@ class TestScenarioGeneratorExecutionEngineBlock:
 
 
 class TestExecutionEngineReportGeneratorBlock:
-
     def _make_scenario(self, stype=ChaosScenarioType.LATENCY):
         return ChaosScenario(
             id="test-scenario-1",
@@ -210,7 +217,9 @@ class TestExecutionEngineReportGeneratorBlock:
     @pytest.mark.asyncio
     async def test_execute_then_generate_report(self):
         scenario = self._make_scenario()
-        config = ExecutionConfig(base_url="https://api.example.com", concurrency=1, timeout_seconds=5)
+        config = ExecutionConfig(
+            base_url="https://api.example.com", concurrency=1, timeout_seconds=5
+        )
         engine = ExecutionEngine(config, transport=MOCK_TRANSPORT)
         result = await engine.execute([scenario])
 
@@ -232,7 +241,9 @@ class TestExecutionEngineReportGeneratorBlock:
             )
             for i in range(5)
         ]
-        config = ExecutionConfig(base_url="https://api.example.com", concurrency=1, timeout_seconds=5)
+        config = ExecutionConfig(
+            base_url="https://api.example.com", concurrency=1, timeout_seconds=5
+        )
         engine = ExecutionEngine(config, transport=MOCK_TRANSPORT)
         result = await engine.execute(scenarios)
 
@@ -255,7 +266,9 @@ class TestExecutionEngineReportGeneratorBlock:
             config={"field_path": "name", "tamper_type": "inject", "tamper_value": "' OR 1=1 --"},
             severity=Severity.HIGH,
         )
-        config = ExecutionConfig(base_url="https://api.example.com", concurrency=1, timeout_seconds=5)
+        config = ExecutionConfig(
+            base_url="https://api.example.com", concurrency=1, timeout_seconds=5
+        )
         engine = ExecutionEngine(config, transport=tamper_transport)
         result = await engine.execute([scenario])
 
@@ -278,7 +291,9 @@ class TestExecutionEngineReportGeneratorBlock:
             config={"requests_per_second": 10, "duration_seconds": 1},
             severity=Severity.MEDIUM,
         )
-        config = ExecutionConfig(base_url="https://api.example.com", concurrency=1, timeout_seconds=5)
+        config = ExecutionConfig(
+            base_url="https://api.example.com", concurrency=1, timeout_seconds=5
+        )
         engine = ExecutionEngine(config, transport=rate_transport)
         result = await engine.execute([scenario])
 
@@ -288,7 +303,6 @@ class TestExecutionEngineReportGeneratorBlock:
 
 
 class TestLLMRouterScenarioGeneratorBlock:
-
     def test_rule_engine_generates_without_llm(self):
         generator = ScenarioGenerator(llm_router=None)
         endpoint = Endpoint(path="/api/test", method=HttpMethod.GET)
@@ -299,13 +313,26 @@ class TestLLMRouterScenarioGeneratorBlock:
     @pytest.mark.asyncio
     async def test_llm_enhancement_adds_scenarios(self):
         mock_router = MagicMock(spec=LLMRouter)
-        mock_router.route = AsyncMock(return_value=json.dumps([
-            {"name": "AI-Generated Edge Case", "type": "latency", "config": {"delay_ms": 9999}, "severity": "high"}
-        ]))
+        mock_router.route = AsyncMock(
+            return_value=json.dumps(
+                [
+                    {
+                        "name": "AI-Generated Edge Case",
+                        "type": "latency",
+                        "config": {"delay_ms": 9999},
+                        "severity": "high",
+                    }
+                ]
+            )
+        )
 
         generator = ScenarioGenerator(llm_router=mock_router)
-        spec = APISpec(title="Test", version="1.0.0", endpoints=[Endpoint(path="/api/test", method=HttpMethod.GET)])
-        scenarios = await generator.generate(spec)
+        spec = APISpec(
+            title="Test",
+            version="1.0.0",
+            endpoints=[Endpoint(path="/api/test", method=HttpMethod.GET)],
+        )
+        await generator.generate(spec)
         mock_router.route.assert_awaited()
 
     @pytest.mark.asyncio
@@ -314,15 +341,19 @@ class TestLLMRouterScenarioGeneratorBlock:
         mock_router.route = AsyncMock(side_effect=Exception("LLM unavailable"))
 
         generator = ScenarioGenerator(llm_router=mock_router)
-        spec = APISpec(title="Test", version="1.0.0", endpoints=[Endpoint(path="/api/test", method=HttpMethod.GET)])
+        spec = APISpec(
+            title="Test",
+            version="1.0.0",
+            endpoints=[Endpoint(path="/api/test", method=HttpMethod.GET)],
+        )
         scenarios = await generator.generate(spec)
         assert len(scenarios) > 0
 
 
 class TestFullAPIRouteBlock:
-
     def test_full_api_chain(self):
         from fastapi.testclient import TestClient
+
         from api_chaos_agent.main import app
         from api_chaos_agent.routers.execution import set_mock_transport
         from api_chaos_agent.services.store import store
@@ -349,6 +380,7 @@ class TestFullAPIRouteBlock:
 
     def test_api_error_handling_chain(self):
         from fastapi.testclient import TestClient
+
         from api_chaos_agent.main import app
         from api_chaos_agent.services.store import store
 

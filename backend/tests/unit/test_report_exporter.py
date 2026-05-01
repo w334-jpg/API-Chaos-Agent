@@ -22,12 +22,30 @@ from api_chaos_agent.services.report_exporter import ReportExporter
 def sample_report():
     result = TestResult(total_scenarios=3)
     result.results = [
-        ScenarioResult(scenario_id="s1", scenario_name="SQL Injection", scenario_type="request_tampering",
-                       status=ExecutionStatus.COMPLETED, severity=Severity.CRITICAL, vulnerability_found=True),
-        ScenarioResult(scenario_id="s2", scenario_name="Rate Limit Bypass", scenario_type="rate_limit",
-                       status=ExecutionStatus.COMPLETED, severity=Severity.HIGH, vulnerability_found=True),
-        ScenarioResult(scenario_id="s3", scenario_name="Latency Test", scenario_type="latency",
-                       status=ExecutionStatus.COMPLETED, severity=Severity.LOW, vulnerability_found=False),
+        ScenarioResult(
+            scenario_id="s1",
+            scenario_name="SQL Injection",
+            scenario_type="request_tampering",
+            status=ExecutionStatus.COMPLETED,
+            severity=Severity.CRITICAL,
+            vulnerability_found=True,
+        ),
+        ScenarioResult(
+            scenario_id="s2",
+            scenario_name="Rate Limit Bypass",
+            scenario_type="rate_limit",
+            status=ExecutionStatus.COMPLETED,
+            severity=Severity.HIGH,
+            vulnerability_found=True,
+        ),
+        ScenarioResult(
+            scenario_id="s3",
+            scenario_name="Latency Test",
+            scenario_type="latency",
+            status=ExecutionStatus.COMPLETED,
+            severity=Severity.LOW,
+            vulnerability_found=False,
+        ),
     ]
     result.completed_scenarios = 3
 
@@ -42,15 +60,25 @@ def sample_report():
         ),
         findings=[
             Finding(
-                scenario_id="s1", scenario_name="SQL Injection", scenario_type="request_tampering",
-                endpoint_path="/users", endpoint_method="POST", severity=Severity.CRITICAL,
-                vulnerability_found=True, details="SQL injection vulnerability detected",
+                scenario_id="s1",
+                scenario_name="SQL Injection",
+                scenario_type="request_tampering",
+                endpoint_path="/users",
+                endpoint_method="POST",
+                severity=Severity.CRITICAL,
+                vulnerability_found=True,
+                details="SQL injection vulnerability detected",
                 recommendation="Use parameterized queries",
             ),
             Finding(
-                scenario_id="s2", scenario_name="Rate Limit Bypass", scenario_type="rate_limit",
-                endpoint_path="/api/data", endpoint_method="GET", severity=Severity.HIGH,
-                vulnerability_found=True, details="Rate limiting not enforced",
+                scenario_id="s2",
+                scenario_name="Rate Limit Bypass",
+                scenario_type="rate_limit",
+                endpoint_path="/api/data",
+                endpoint_method="GET",
+                severity=Severity.HIGH,
+                vulnerability_found=True,
+                details="Rate limiting not enforced",
                 recommendation="Implement proper rate limiting middleware",
             ),
         ],
@@ -126,21 +154,36 @@ class TestReportExporterCSV:
 
 class TestReportExporterEmpty:
     def test_export_html_no_findings(self):
-        report = Report(id="empty-report", schema_id="test", summary=ReportSummary(total_scenarios=0), findings=[])
+        report = Report(
+            id="empty-report",
+            schema_id="test",
+            summary=ReportSummary(total_scenarios=0),
+            findings=[],
+        )
         exporter = ReportExporter()
         html = exporter.export_html(report)
         assert "<!DOCTYPE html>" in html
         assert "No vulnerabilities found" in html
 
     def test_export_json_empty(self):
-        report = Report(id="empty-report", schema_id="test", summary=ReportSummary(total_scenarios=0), findings=[])
+        report = Report(
+            id="empty-report",
+            schema_id="test",
+            summary=ReportSummary(total_scenarios=0),
+            findings=[],
+        )
         exporter = ReportExporter()
         json_str = exporter.export_json(report)
         data = json.loads(json_str)
         assert data["findings"] == []
 
     def test_export_csv_empty(self):
-        report = Report(id="empty-report", schema_id="test", summary=ReportSummary(total_scenarios=0), findings=[])
+        report = Report(
+            id="empty-report",
+            schema_id="test",
+            summary=ReportSummary(total_scenarios=0),
+            findings=[],
+        )
         exporter = ReportExporter()
         csv_str = exporter.export_csv(report)
         assert "scenario_id" in csv_str

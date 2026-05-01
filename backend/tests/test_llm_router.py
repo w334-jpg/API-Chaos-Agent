@@ -6,21 +6,22 @@ All external LLM calls are mocked — no real API calls are made.
 from __future__ import annotations
 
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from api_chaos_agent.services.llm_router import LLMRouter, TaskComplexity
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def router() -> LLMRouter:
     """Return a fresh LLMRouter with default config and a temp cache dir."""
     import tempfile
+
     with tempfile.TemporaryDirectory() as tmpdir:
         cfg = {
             "cache_dir": tmpdir,
@@ -39,6 +40,7 @@ def router() -> LLMRouter:
 # ===================================================================
 # 1. Task complexity classification
 # ===================================================================
+
 
 class TestClassifyComplexity:
     """Test classify_complexity maps prompts to the right TaskComplexity."""
@@ -80,14 +82,19 @@ class TestClassifyComplexity:
 # 2. route() returns correct model type based on complexity
 # ===================================================================
 
+
 class TestRouteDispatch:
     """Test that route() dispatches to the correct backend."""
 
     @pytest.mark.asyncio
     async def test_route_simple_uses_rule_engine(self, router: LLMRouter) -> None:
-        with patch.object(router, "_call_rule_engine", new_callable=AsyncMock, return_value="rule-result") as mock_re, \
-             patch.object(router, "_call_local_model", new_callable=AsyncMock) as mock_local, \
-             patch.object(router, "_call_cloud_model", new_callable=AsyncMock) as mock_cloud:
+        with (
+            patch.object(
+                router, "_call_rule_engine", new_callable=AsyncMock, return_value="rule-result"
+            ) as mock_re,
+            patch.object(router, "_call_local_model", new_callable=AsyncMock) as mock_local,
+            patch.object(router, "_call_cloud_model", new_callable=AsyncMock) as mock_cloud,
+        ):
             result = await router.route(
                 "Change field type to string",
                 complexity=TaskComplexity.SIMPLE,
@@ -99,9 +106,13 @@ class TestRouteDispatch:
 
     @pytest.mark.asyncio
     async def test_route_medium_uses_local_model(self, router: LLMRouter) -> None:
-        with patch.object(router, "_call_rule_engine", new_callable=AsyncMock) as mock_re, \
-             patch.object(router, "_call_local_model", new_callable=AsyncMock, return_value="local-result") as mock_local, \
-             patch.object(router, "_call_cloud_model", new_callable=AsyncMock) as mock_cloud:
+        with (
+            patch.object(router, "_call_rule_engine", new_callable=AsyncMock) as mock_re,
+            patch.object(
+                router, "_call_local_model", new_callable=AsyncMock, return_value="local-result"
+            ) as mock_local,
+            patch.object(router, "_call_cloud_model", new_callable=AsyncMock) as mock_cloud,
+        ):
             result = await router.route(
                 "Generate fuzz data for login",
                 system_prompt="You are a tester",
@@ -114,9 +125,13 @@ class TestRouteDispatch:
 
     @pytest.mark.asyncio
     async def test_route_complex_uses_cloud_model(self, router: LLMRouter) -> None:
-        with patch.object(router, "_call_rule_engine", new_callable=AsyncMock) as mock_re, \
-             patch.object(router, "_call_local_model", new_callable=AsyncMock) as mock_local, \
-             patch.object(router, "_call_cloud_model", new_callable=AsyncMock, return_value="cloud-result") as mock_cloud:
+        with (
+            patch.object(router, "_call_rule_engine", new_callable=AsyncMock) as mock_re,
+            patch.object(router, "_call_local_model", new_callable=AsyncMock) as mock_local,
+            patch.object(
+                router, "_call_cloud_model", new_callable=AsyncMock, return_value="cloud-result"
+            ) as mock_cloud,
+        ):
             result = await router.route(
                 "Design multi-step chaos scenario",
                 system_prompt="You are a security expert",
@@ -130,7 +145,9 @@ class TestRouteDispatch:
     @pytest.mark.asyncio
     async def test_route_auto_classifies_when_complexity_is_none(self, router: LLMRouter) -> None:
         """When complexity=None, route() should auto-classify and dispatch accordingly."""
-        with patch.object(router, "_call_rule_engine", new_callable=AsyncMock, return_value="auto-result") as mock_re:
+        with patch.object(
+            router, "_call_rule_engine", new_callable=AsyncMock, return_value="auto-result"
+        ) as mock_re:
             result = await router.route("Change field type to string", complexity=None)
             assert result == "auto-result"
             mock_re.assert_awaited_once()
@@ -139,6 +156,7 @@ class TestRouteDispatch:
 # ===================================================================
 # 3. Caching: same input returns cached result
 # ===================================================================
+
 
 class TestCaching:
     """Test that cache hit avoids re-calling LLM."""
@@ -159,10 +177,9 @@ class TestCaching:
             assert result1 == result2
             assert call_count == 1  # only called once
 
-
-# ===================================================================
-# 4. Cache miss triggers actual LLM call
-# ===================================================================
+    # ===================================================================
+    # 4. Cache miss triggers actual LLM call
+    # ===================================================================
 
     @pytest.mark.asyncio
     async def test_cache_miss_triggers_llm_call(self, router: LLMRouter) -> None:
@@ -184,6 +201,7 @@ class TestCaching:
 # 5. Cloud model client initialization
 # ===================================================================
 
+
 class TestCloudModelInit:
     """Test that OpenAI and Anthropic clients are initialized correctly."""
 
@@ -201,6 +219,7 @@ class TestCloudModelInit:
 # 6. Local model (Ollama) client initialization
 # ===================================================================
 
+
 class TestLocalModelInit:
     """Test Ollama client configuration."""
 
@@ -213,12 +232,15 @@ class TestLocalModelInit:
 # 7. Rule engine handles simple tasks
 # ===================================================================
 
+
 class TestRuleEngine:
     """Test the rule-based engine for simple tasks."""
 
     @pytest.mark.asyncio
     async def test_type_mutation(self, router: LLMRouter) -> None:
-        result = await router._call_rule_engine("Change the field type of 'age' from integer to string")
+        result = await router._call_rule_engine(
+            "Change the field type of 'age' from integer to string"
+        )
         assert isinstance(result, str)
         assert len(result) > 0
         # Should contain a mutated value hint
@@ -247,12 +269,15 @@ class TestRuleEngine:
 # 8. Error handling when LLM API fails
 # ===================================================================
 
+
 class TestErrorHandling:
     """Test graceful error handling when LLM calls fail."""
 
     @pytest.mark.asyncio
     async def test_cloud_model_failure_returns_fallback(self, router: LLMRouter) -> None:
-        with patch.object(router, "_call_cloud_model", new_callable=AsyncMock, side_effect=Exception("API error")):
+        with patch.object(
+            router, "_call_cloud_model", new_callable=AsyncMock, side_effect=Exception("API error")
+        ):
             result = await router.route(
                 "Design complex scenario",
                 complexity=TaskComplexity.COMPLEX,
@@ -263,7 +288,12 @@ class TestErrorHandling:
 
     @pytest.mark.asyncio
     async def test_local_model_failure_returns_fallback(self, router: LLMRouter) -> None:
-        with patch.object(router, "_call_local_model", new_callable=AsyncMock, side_effect=Exception("Ollama down")):
+        with patch.object(
+            router,
+            "_call_local_model",
+            new_callable=AsyncMock,
+            side_effect=Exception("Ollama down"),
+        ):
             result = await router.route(
                 "Generate fuzz data",
                 complexity=TaskComplexity.MEDIUM,
@@ -281,6 +311,7 @@ class TestErrorHandling:
 # ===================================================================
 # 9. Cache expiration / TTL behavior
 # ===================================================================
+
 
 class TestCacheTTL:
     """Test that cached entries expire after TTL."""
@@ -312,6 +343,7 @@ class TestCacheTTL:
 # 10. Batch request optimization
 # ===================================================================
 
+
 class TestBatchOptimization:
     """Test batch request handling."""
 
@@ -323,9 +355,17 @@ class TestBatchOptimization:
             ("Design complex scenario", TaskComplexity.COMPLEX),
         ]
 
-        with patch.object(router, "_call_rule_engine", new_callable=AsyncMock, return_value="rule-result"), \
-             patch.object(router, "_call_local_model", new_callable=AsyncMock, return_value="local-result"), \
-             patch.object(router, "_call_cloud_model", new_callable=AsyncMock, return_value="cloud-result"):
+        with (
+            patch.object(
+                router, "_call_rule_engine", new_callable=AsyncMock, return_value="rule-result"
+            ),
+            patch.object(
+                router, "_call_local_model", new_callable=AsyncMock, return_value="local-result"
+            ),
+            patch.object(
+                router, "_call_cloud_model", new_callable=AsyncMock, return_value="cloud-result"
+            ),
+        ):
             results = await router.batch_route(prompts)
             assert len(results) == 3
             assert results[0] == "rule-result"

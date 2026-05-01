@@ -5,15 +5,15 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from api_chaos_agent.models.schema import (
-    APISpec,
-    Endpoint,
-    FieldConstraint,
-    FieldType,
-    HttpMethod,
-    Parameter,
-    RequestBody,
-    ResponseSpec,
+from api_chaos_agent.models.report import (
+    ExecutionConfig,
+    ExecutionStatus,
+    Finding,
+    Report,
+    ReportSummary,
+    ResponseData,
+    ScenarioResult,
+    TestResult,
 )
 from api_chaos_agent.models.scenario import (
     ChaosScenario,
@@ -24,15 +24,15 @@ from api_chaos_agent.models.scenario import (
     Severity,
     TamperingConfig,
 )
-from api_chaos_agent.models.report import (
-    ExecutionConfig,
-    ExecutionStatus,
-    Finding,
-    Report,
-    ReportSummary,
-    ResponseData,
-    ScenarioResult,
-    TestResult,
+from api_chaos_agent.models.schema import (
+    APISpec,
+    Endpoint,
+    FieldConstraint,
+    FieldType,
+    HttpMethod,
+    Parameter,
+    RequestBody,
+    ResponseSpec,
 )
 
 
@@ -55,9 +55,15 @@ class TestSchemaModels:
 
     def test_field_constraint_with_all_fields(self):
         fc = FieldConstraint(
-            field_name="email", field_type=FieldType.STRING, required=True,
-            min_length=5, max_length=100, pattern=r"^[^@]+@[^@]+$",
-            format="email", enum_values=None, default="user@example.com",
+            field_name="email",
+            field_type=FieldType.STRING,
+            required=True,
+            min_length=5,
+            max_length=100,
+            pattern=r"^[^@]+@[^@]+$",
+            format="email",
+            enum_values=None,
+            default="user@example.com",
         )
         assert fc.required is True
         assert fc.format == "email"
@@ -73,7 +79,9 @@ class TestSchemaModels:
         assert rb.raw_schema == {}
 
     def test_response_spec_model(self):
-        rs = ResponseSpec(status_code="200", description="OK", content_type="application/json", schema_ref="Pet")
+        rs = ResponseSpec(
+            status_code="200", description="OK", content_type="application/json", schema_ref="Pet"
+        )
         assert rs.status_code == "200"
         assert rs.schema_ref == "Pet"
 
@@ -92,8 +100,12 @@ class TestSchemaModels:
 
     def test_api_spec_with_endpoints(self):
         spec = APISpec(
-            title="Test", version="1.0",
-            endpoints=[Endpoint(path="/a", method=HttpMethod.GET), Endpoint(path="/b", method=HttpMethod.POST)],
+            title="Test",
+            version="1.0",
+            endpoints=[
+                Endpoint(path="/a", method=HttpMethod.GET),
+                Endpoint(path="/b", method=HttpMethod.POST),
+            ],
         )
         assert len(spec.endpoints) == 2
 
@@ -131,7 +143,9 @@ class TestScenarioModels:
             ErrorStatusConfig(status_code=999)
 
     def test_tampering_config(self):
-        tc = TamperingConfig(field_path="name", tamper_type="inject", tamper_value="'; DROP TABLE --")
+        tc = TamperingConfig(
+            field_path="name", tamper_type="inject", tamper_value="'; DROP TABLE --"
+        )
         assert tc.tamper_type == "inject"
 
     def test_rate_limit_config(self):
@@ -145,16 +159,20 @@ class TestScenarioModels:
 
     def test_chaos_scenario_model(self):
         scenario = ChaosScenario(
-            id="sc-1", name="Test", scenario_type=ChaosScenarioType.LATENCY,
+            id="sc-1",
+            name="Test",
+            scenario_type=ChaosScenarioType.LATENCY,
             endpoint=Endpoint(path="/test", method=HttpMethod.GET),
-            config={"delay_ms": 100}, severity=Severity.MEDIUM,
+            config={"delay_ms": 100},
+            severity=Severity.MEDIUM,
         )
         assert scenario.id == "sc-1"
         assert scenario.description == ""
 
     def test_chaos_scenario_default_id(self):
         scenario = ChaosScenario(
-            name="Test", scenario_type=ChaosScenarioType.LATENCY,
+            name="Test",
+            scenario_type=ChaosScenarioType.LATENCY,
             endpoint=Endpoint(path="/test", method=HttpMethod.GET),
             config={"delay_ms": 100},
         )
@@ -176,8 +194,10 @@ class TestReportModels:
     def test_execution_config_custom(self):
         config = ExecutionConfig(
             base_url="https://api.example.com",
-            concurrency=50, timeout_seconds=60.0,
-            max_retries=5, retry_delay_seconds=2.0,
+            concurrency=50,
+            timeout_seconds=60.0,
+            max_retries=5,
+            retry_delay_seconds=2.0,
             headers={"Authorization": "Bearer token"},
             proxy="http://proxy:8080",
             serial=True,
@@ -216,9 +236,13 @@ class TestReportModels:
 
     def test_finding_model(self):
         f = Finding(
-            scenario_id="s1", scenario_name="Test", scenario_type="latency",
-            endpoint_path="/test", endpoint_method="GET",
-            severity=Severity.HIGH, vulnerability_found=True,
+            scenario_id="s1",
+            scenario_name="Test",
+            scenario_type="latency",
+            endpoint_path="/test",
+            endpoint_method="GET",
+            severity=Severity.HIGH,
+            vulnerability_found=True,
             details="Test finding",
         )
         assert f.recommendation == ""
@@ -237,9 +261,14 @@ class TestReportModels:
             summary=ReportSummary(total_scenarios=10, failed=1, severity_counts={"high": 1}),
             findings=[
                 Finding(
-                    scenario_id="s1", scenario_name="F1", scenario_type="latency",
-                    endpoint_path="/a", endpoint_method="GET",
-                    severity=Severity.HIGH, vulnerability_found=True, details="D1",
+                    scenario_id="s1",
+                    scenario_name="F1",
+                    scenario_type="latency",
+                    endpoint_path="/a",
+                    endpoint_method="GET",
+                    severity=Severity.HIGH,
+                    vulnerability_found=True,
+                    details="D1",
                 ),
             ],
         )
@@ -254,9 +283,12 @@ class TestReportModels:
 
     def test_models_serialize_to_json(self):
         scenario = ChaosScenario(
-            id="sc-1", name="Test", scenario_type=ChaosScenarioType.LATENCY,
+            id="sc-1",
+            name="Test",
+            scenario_type=ChaosScenarioType.LATENCY,
             endpoint=Endpoint(path="/test", method=HttpMethod.GET),
-            config={"delay_ms": 100}, severity=Severity.MEDIUM,
+            config={"delay_ms": 100},
+            severity=Severity.MEDIUM,
         )
         json_str = scenario.model_dump_json()
         data = __import__("json").loads(json_str)

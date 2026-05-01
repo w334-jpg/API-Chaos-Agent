@@ -7,14 +7,12 @@ Covers:
 - Stress tests: many feature checks, concurrent access
 """
 
-import os
-import pytest
-import time
 import threading
-from unittest.mock import MagicMock
+import time
+
+import pytest
 
 from api_chaos_agent.core.exceptions import AuthenticationError, SecurityError
-
 from api_chaos_agent.core.feature_gates import (
     FEATURE_GATES,
     PLAN_QUOTAS,
@@ -25,7 +23,7 @@ from api_chaos_agent.core.feature_gates import (
     require_feature,
     require_plan,
 )
-from api_chaos_agent.models.tenant import TenantPlan, TenantQuota, Tenant, PRO_QUOTA, ENTERPRISE_QUOTA
+from api_chaos_agent.models.tenant import ENTERPRISE_QUOTA, PRO_QUOTA, Tenant, TenantPlan
 
 
 def _make_tenant(plan: TenantPlan = TenantPlan.FREE) -> Tenant:
@@ -41,7 +39,9 @@ class TestFeatureGateConstants:
 
     def test_all_features_have_three_plans(self):
         for feature, gates in FEATURE_GATES.items():
-            assert set(gates.keys()) == {"free", "pro", "enterprise"}, f"{feature} missing plan keys"
+            assert set(gates.keys()) == {"free", "pro", "enterprise"}, (
+                f"{feature} missing plan keys"
+            )
 
     def test_free_plan_has_no_true_gates(self):
         for feature, gates in FEATURE_GATES.items():

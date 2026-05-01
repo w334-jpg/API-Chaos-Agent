@@ -19,32 +19,26 @@ from __future__ import annotations
 import json
 import os
 import threading
-import time
 
 import pytest
 from fastapi.testclient import TestClient
 
-from api_chaos_agent.main import app
-from api_chaos_agent.core.license import (
-    LicenseInfo,
-    LicenseManager,
-    LicenseStatus,
-    LicenseType,
-    _LICENSE_FILE_PATHS,
-    _check_bsl_eligibility,
-    generate_trial_license,
-    _generate_signature,
-)
 from api_chaos_agent.core.feature_gates import (
     FEATURE_GATES,
-    PLAN_QUOTAS,
     check_quota,
     get_features_for_plan,
     get_quota_for_plan,
     is_feature_available,
-    require_feature,
-    require_plan,
 )
+from api_chaos_agent.core.license import (
+    _LICENSE_FILE_PATHS,
+    LicenseManager,
+    LicenseType,
+    _check_bsl_eligibility,
+    _generate_signature,
+    generate_trial_license,
+)
+from api_chaos_agent.main import app
 from api_chaos_agent.models.tenant import TenantPlan
 
 
@@ -97,7 +91,6 @@ def _make_license_key(license_type: str = "commercial_pro", plan: str = "pro") -
 
 
 class TestLicenseToFeatureGateFlow:
-
     def test_no_license_means_free_plan_features(self):
         for feature, gates in FEATURE_GATES.items():
             assert is_feature_available(TenantPlan.FREE, feature) == gates["free"]
@@ -152,7 +145,6 @@ class TestLicenseToFeatureGateFlow:
 
 
 class TestFeatureGateToRouteFlow:
-
     def test_plans_features_reflects_gates(self, client):
         resp = client.get("/plans/features", params={"plan": "pro"})
         assert resp.status_code == 200
@@ -179,7 +171,10 @@ class TestFeatureGateToRouteFlow:
             assert data["quota"]["max_team_members"] == quota.max_team_members
 
     def test_check_quota_endpoint_uses_feature_gates(self, client):
-        resp = client.get("/plans/check-quota", params={"resource": "max_schemas", "current_usage": 5, "plan": "free"})
+        resp = client.get(
+            "/plans/check-quota",
+            params={"resource": "max_schemas", "current_usage": 5, "plan": "free"},
+        )
         assert resp.status_code == 200
         assert resp.json()["within_limit"] == check_quota(TenantPlan.FREE, "max_schemas", 5)
 
@@ -191,7 +186,6 @@ class TestFeatureGateToRouteFlow:
 
 
 class TestLicenseToRouteFlow:
-
     def test_license_install_then_info_route(self, client):
         key = _make_license_key("commercial_pro", "pro")
         install_resp = client.post("/license/install", params={"key": key})
@@ -239,7 +233,6 @@ class TestLicenseToRouteFlow:
 
 
 class TestTenantPlanToFeatureGateFlow:
-
     def test_tenant_creation_uses_free_plan_by_default(self, client):
         resp = client.post("/api/v2/tenants", params={"name": "FreeTenant"})
         assert resp.status_code == 200
@@ -257,10 +250,14 @@ class TestTenantPlanToFeatureGateFlow:
     def test_tenant_quota_enforcement_through_route(self, client):
         create_resp = client.post("/api/v2/tenants", params={"name": "QuotaTenant"})
         tenant_id = create_resp.json()["id"]
-        resp = client.get(f"/api/v2/tenants/{tenant_id}/quota", params={"resource": "schemas", "current": 5})
+        resp = client.get(
+            f"/api/v2/tenants/{tenant_id}/quota", params={"resource": "schemas", "current": 5}
+        )
         assert resp.status_code == 200
         assert resp.json()["allowed"] is True
-        resp2 = client.get(f"/api/v2/tenants/{tenant_id}/quota", params={"resource": "schemas", "current": 15})
+        resp2 = client.get(
+            f"/api/v2/tenants/{tenant_id}/quota", params={"resource": "schemas", "current": 15}
+        )
         assert resp2.json()["allowed"] is False
 
     def test_tenant_member_quota_enforcement(self, client):
@@ -284,7 +281,6 @@ class TestTenantPlanToFeatureGateFlow:
 
 
 class TestEndToEndAccessControlFlow:
-
     def test_full_flow_no_license_to_pro(self, client):
         info_resp = client.get("/license/info")
         assert info_resp.status_code == 200
@@ -304,7 +300,9 @@ class TestEndToEndAccessControlFlow:
         tenant_resp = client.post("/api/v2/tenants", params={"name": "LicensedOrg", "plan": "pro"})
         assert tenant_resp.status_code == 200
         tenant_id = tenant_resp.json()["id"]
-        quota_resp = client.get(f"/api/v2/tenants/{tenant_id}/quota", params={"resource": "schemas", "current": 50})
+        quota_resp = client.get(
+            f"/api/v2/tenants/{tenant_id}/quota", params={"resource": "schemas", "current": 50}
+        )
         assert quota_resp.json()["allowed"] is True
         member_resp = client.post(
             f"/api/v2/tenants/{tenant_id}/members",
@@ -324,7 +322,9 @@ class TestEndToEndAccessControlFlow:
         assert client.get("/license/check-pro").json()["can_use_pro"] is False
 
     def test_full_flow_tenant_plan_downgrade(self, client):
-        create_resp = client.post("/api/v2/tenants", params={"name": "DowngradeOrg", "plan": "enterprise"})
+        create_resp = client.post(
+            "/api/v2/tenants", params={"name": "DowngradeOrg", "plan": "enterprise"}
+        )
         tenant_id = create_resp.json()["id"]
         assert create_resp.json()["quota"]["sso_enabled"] is True
         downgrade_resp = client.put(f"/api/v2/tenants/{tenant_id}/plan", params={"plan": "free"})
@@ -334,7 +334,6 @@ class TestEndToEndAccessControlFlow:
 
 
 class TestIntegrationStress:
-
     def test_concurrent_license_checks(self, client):
         key = _make_license_key("commercial_pro", "pro")
         client.post("/license/install", params={"key": key})

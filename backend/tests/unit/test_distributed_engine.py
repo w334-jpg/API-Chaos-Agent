@@ -3,17 +3,13 @@
 Covers: unit tests, functional tests, edge cases, stress tests.
 """
 
-import asyncio
 import time
-from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from api_chaos_agent.models.distributed import (
     DistributedExecutionPlan,
-    DistributedTask,
-    Worker,
     WorkerCapabilities,
     WorkerStatus,
 )
@@ -27,8 +23,12 @@ from api_chaos_agent.services.distributed_engine import (
 _DEFAULT_ENDPOINT = Endpoint(path="/api/test", method="GET")
 
 
-def _make_scenario(idx: int = 0, stype: ChaosScenarioType = ChaosScenarioType.LATENCY) -> ChaosScenario:
-    return ChaosScenario(id=f"s{idx}", name=f"scenario-{idx}", scenario_type=stype, endpoint=_DEFAULT_ENDPOINT)
+def _make_scenario(
+    idx: int = 0, stype: ChaosScenarioType = ChaosScenarioType.LATENCY
+) -> ChaosScenario:
+    return ChaosScenario(
+        id=f"s{idx}", name=f"scenario-{idx}", scenario_type=stype, endpoint=_DEFAULT_ENDPOINT
+    )
 
 
 class TestWorkerRegistryUnit:
@@ -45,7 +45,9 @@ class TestWorkerRegistryUnit:
         assert worker.name == "custom-worker"
 
     def test_register_worker_custom_capabilities(self):
-        caps = WorkerCapabilities(max_concurrency=200, region="us-east", supported_protocols=["rest", "grpc"])
+        caps = WorkerCapabilities(
+            max_concurrency=200, region="us-east", supported_protocols=["rest", "grpc"]
+        )
         worker = self.registry.register(name="cap-worker", capabilities=caps)
         assert worker.capabilities.max_concurrency == 200
         assert worker.capabilities.region == "us-east"
@@ -132,7 +134,7 @@ class TestWorkerRegistryUnit:
         assert worker.status == WorkerStatus.IDLE
 
     def test_list_active_excludes_offline(self):
-        w1 = self.registry.register(name="active")
+        self.registry.register(name="active")
         w2 = self.registry.register(name="offline")
         w2.status = WorkerStatus.OFFLINE
         active = self.registry.list_active()
@@ -192,8 +194,8 @@ class TestTaskDistributorUnit:
         self.distributor = TaskDistributor(self.registry)
 
     def test_round_robin_distribution(self):
-        w1 = self.registry.register(name="w1")
-        w2 = self.registry.register(name="w2")
+        self.registry.register(name="w1")
+        self.registry.register(name="w2")
         scenarios = [_make_scenario(i) for i in range(4)]
         plan = self.distributor.create_plan("exec-1", scenarios, strategy="round_robin")
         assert plan.total_scenarios == 4
@@ -322,6 +324,7 @@ class TestDistributedExecutionEngineUnit:
     async def test_execute_distributed_no_workers(self):
         scenarios = [_make_scenario()]
         from api_chaos_agent.models.report import ExecutionConfig
+
         config = ExecutionConfig(base_url="http://test.local")
         results = await self.engine.execute_distributed("exec-1", scenarios, config)
         assert results == []
@@ -331,8 +334,11 @@ class TestDistributedExecutionEngineUnit:
         self.engine.registry.register(name="w1")
         scenarios = [_make_scenario(i) for i in range(2)]
         from api_chaos_agent.models.report import ExecutionConfig, ScenarioResult
+
         config = ExecutionConfig(base_url="http://test.local")
-        mock_result = ScenarioResult(scenario_id="s0", scenario_name="scenario-0", scenario_type="latency", success=True)
+        mock_result = ScenarioResult(
+            scenario_id="s0", scenario_name="scenario-0", scenario_type="latency", success=True
+        )
         with patch("api_chaos_agent.services.execution_engine.ExecutionEngine") as MockEngine:
             mock_instance = MagicMock()
             mock_instance.execute = AsyncMock(return_value=MagicMock(results=[mock_result]))
@@ -345,6 +351,7 @@ class TestDistributedExecutionEngineUnit:
         self.engine.registry.register(name="w1")
         scenarios = [_make_scenario()]
         from api_chaos_agent.models.report import ExecutionConfig
+
         config = ExecutionConfig(base_url="http://test.local")
         with patch("api_chaos_agent.services.execution_engine.ExecutionEngine") as MockEngine:
             mock_instance = MagicMock()
@@ -360,6 +367,7 @@ class TestDistributedExecutionEngineUnit:
         worker = self.engine.registry.register(name="w1")
         scenarios = [_make_scenario()]
         from api_chaos_agent.models.report import ExecutionConfig
+
         config = ExecutionConfig(base_url="http://test.local")
         with patch("api_chaos_agent.services.execution_engine.ExecutionEngine") as MockEngine:
             mock_instance = MagicMock()
@@ -373,12 +381,13 @@ class TestDistributedExecutionEngineUnit:
         worker = self.engine.registry.register(name="w1")
         scenarios = [_make_scenario()]
         from api_chaos_agent.models.report import ExecutionConfig
+
         config = ExecutionConfig(base_url="http://test.local")
         with patch("api_chaos_agent.services.execution_engine.ExecutionEngine") as MockEngine:
             mock_instance = MagicMock()
             mock_instance.execute = AsyncMock(side_effect=RuntimeError("boom"))
             MockEngine.return_value = mock_instance
-            results = await self.engine.execute_distributed("exec-fail", scenarios, config)
+            await self.engine.execute_distributed("exec-fail", scenarios, config)
             assert worker.failed_tasks == 1
 
     @pytest.mark.asyncio
@@ -387,12 +396,13 @@ class TestDistributedExecutionEngineUnit:
         self.engine.registry.register(name="w2")
         scenarios = [_make_scenario(i) for i in range(4)]
         from api_chaos_agent.models.report import ExecutionConfig
+
         config = ExecutionConfig(base_url="http://test.local")
         with patch("api_chaos_agent.services.execution_engine.ExecutionEngine") as MockEngine:
             mock_instance = MagicMock()
             mock_instance.execute = AsyncMock(return_value=MagicMock(results=[]))
             MockEngine.return_value = mock_instance
-            results = await self.engine.execute_distributed("exec-multi", scenarios, config)
+            await self.engine.execute_distributed("exec-multi", scenarios, config)
             plan = self.engine.get_plan("exec-multi")
             assert plan.total_workers == 2
 
@@ -400,7 +410,7 @@ class TestDistributedExecutionEngineUnit:
 class TestDistributedEngineStress:
     def test_register_many_workers(self):
         registry = WorkerRegistry()
-        workers = [registry.register(name=f"w{i}") for i in range(200)]
+        [registry.register(name=f"w{i}") for i in range(200)]
         assert len(registry.list_active()) == 200
 
     def test_distribute_many_scenarios(self):
@@ -421,7 +431,7 @@ class TestDistributedEngineStress:
         distributor = TaskDistributor(registry)
         scenarios = [_make_scenario(i) for i in range(1000)]
         start = time.monotonic()
-        plan = distributor.create_plan("perf-1", scenarios, strategy="round_robin")
+        distributor.create_plan("perf-1", scenarios, strategy="round_robin")
         elapsed = time.monotonic() - start
         assert elapsed < 1.0, f"Distribution took {elapsed:.3f}s, expected < 1.0s"
 
@@ -452,13 +462,14 @@ class TestDistributedEngineStress:
             engine.registry.register(name=f"w{i}")
         scenarios = [_make_scenario(i) for i in range(40)]
         from api_chaos_agent.models.report import ExecutionConfig
+
         config = ExecutionConfig(base_url="http://test.local")
         with patch("api_chaos_agent.services.execution_engine.ExecutionEngine") as MockEngine:
             mock_instance = MagicMock()
             mock_instance.execute = AsyncMock(return_value=MagicMock(results=[]))
             MockEngine.return_value = mock_instance
             start = time.monotonic()
-            results = await engine.execute_distributed("stress-exec", scenarios, config)
+            await engine.execute_distributed("stress-exec", scenarios, config)
             elapsed = time.monotonic() - start
             assert elapsed < 5.0, f"Distributed execution took {elapsed:.3f}s"
 
@@ -469,12 +480,17 @@ class TestDistributedEngineFunctional:
         distributor = TaskDistributor(registry)
         w1 = registry.register(name="w1", capabilities=WorkerCapabilities(region="us-east"))
         w2 = registry.register(name="w2", capabilities=WorkerCapabilities(region="eu-west"))
-        scenarios = [_make_scenario(i, stype) for i, stype in enumerate([
-            ChaosScenarioType.LATENCY,
-            ChaosScenarioType.ERROR_STATUS,
-            ChaosScenarioType.NETWORK_PARTITION,
-            ChaosScenarioType.LATENCY,
-        ])]
+        scenarios = [
+            _make_scenario(i, stype)
+            for i, stype in enumerate(
+                [
+                    ChaosScenarioType.LATENCY,
+                    ChaosScenarioType.ERROR_STATUS,
+                    ChaosScenarioType.NETWORK_PARTITION,
+                    ChaosScenarioType.LATENCY,
+                ]
+            )
+        ]
         plan = distributor.create_plan("func-1", scenarios, strategy="round_robin")
         assert plan.total_scenarios == 4
         assert plan.total_workers == 2
@@ -485,8 +501,14 @@ class TestDistributedEngineFunctional:
     def test_region_aware_distribution_with_multiple_regions(self):
         registry = WorkerRegistry()
         distributor = TaskDistributor(registry)
-        us_workers = [registry.register(name=f"us-{i}", capabilities=WorkerCapabilities(region="us-east")) for i in range(3)]
-        eu_workers = [registry.register(name=f"eu-{i}", capabilities=WorkerCapabilities(region="eu-west")) for i in range(2)]
+        [
+            registry.register(name=f"us-{i}", capabilities=WorkerCapabilities(region="us-east"))
+            for i in range(3)
+        ]
+        [
+            registry.register(name=f"eu-{i}", capabilities=WorkerCapabilities(region="eu-west"))
+            for i in range(2)
+        ]
         scenarios = [_make_scenario(i) for i in range(10)]
         plan = distributor.create_plan("func-region", scenarios, strategy="region_aware")
         assert plan.strategy == "region_aware"

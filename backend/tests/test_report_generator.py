@@ -9,7 +9,6 @@ import pytest
 from api_chaos_agent.models.report import (
     ExecutionConfig,
     ExecutionStatus,
-    Finding,
     Report,
     ReportSummary,
     ResponseData,
@@ -17,7 +16,6 @@ from api_chaos_agent.models.report import (
     Severity,
     TestResult,
 )
-from api_chaos_agent.models.scenario import ChaosScenarioType
 from api_chaos_agent.services.report_generator import ReportGenerator
 
 
@@ -55,7 +53,9 @@ def test_result_with_vulns(config) -> TestResult:
     results = [
         _make_scenario_result("latency", vulnerability_found=True, severity=Severity.HIGH),
         _make_scenario_result("error_status", vulnerability_found=True, severity=Severity.CRITICAL),
-        _make_scenario_result("request_tampering", vulnerability_found=False, severity=Severity.MEDIUM),
+        _make_scenario_result(
+            "request_tampering", vulnerability_found=False, severity=Severity.MEDIUM
+        ),
         _make_scenario_result("rate_limit", vulnerability_found=True, severity=Severity.LOW),
     ]
     return TestResult(
@@ -88,7 +88,6 @@ def generator() -> ReportGenerator:
 
 
 class TestGenerateReport:
-
     def test_generate_returns_report(self, generator, test_result_with_vulns):
         report = generator.generate(test_result_with_vulns)
         assert isinstance(report, Report)
@@ -120,7 +119,6 @@ class TestGenerateReport:
 
 
 class TestExtractFindings:
-
     def test_extracts_vulnerable_findings(self, generator, test_result_with_vulns):
         findings = generator._extract_findings(test_result_with_vulns)
         assert len(findings) == 3
@@ -135,7 +133,9 @@ class TestExtractFindings:
         findings = generator._extract_findings(test_result_with_vulns)
         severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
         for i in range(len(findings) - 1):
-            assert severity_order.get(findings[i].severity.value, 99) <= severity_order.get(findings[i + 1].severity.value, 99)
+            assert severity_order.get(findings[i].severity.value, 99) <= severity_order.get(
+                findings[i + 1].severity.value, 99
+            )
 
     def test_finding_has_recommendation(self, generator, test_result_with_vulns):
         findings = generator._extract_findings(test_result_with_vulns)
@@ -145,7 +145,6 @@ class TestExtractFindings:
 
 
 class TestSeveritySummary:
-
     def test_summary_in_report(self, generator, test_result_with_vulns):
         report = generator.generate(test_result_with_vulns)
         assert isinstance(report.summary, ReportSummary)
@@ -157,7 +156,6 @@ class TestSeveritySummary:
 
 
 class TestRemediation:
-
     def test_latency_remediation(self, generator):
         result = _make_scenario_result("latency", vulnerability_found=True)
         remediation = generator._suggest_remediation(result)

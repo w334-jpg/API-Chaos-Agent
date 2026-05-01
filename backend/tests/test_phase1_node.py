@@ -20,12 +20,10 @@ import time
 
 import httpx
 import pytest
-import pytest_asyncio
 
 from api_chaos_agent.core.config import (
     AppConfig,
     AuthConfig,
-    ExecutionConfig as CoreExecutionConfig,
     LLMConfig,
     LoggingConfig,
     RateLimitConfig,
@@ -33,10 +31,12 @@ from api_chaos_agent.core.config import (
     StoreConfig,
     settings,
 )
+from api_chaos_agent.core.config import (
+    ExecutionConfig as CoreExecutionConfig,
+)
 from api_chaos_agent.core.logging import get_logger, setup_logging
-from api_chaos_agent.core.rate_limit import RateLimitMiddleware, _TokenBucket
+from api_chaos_agent.core.rate_limit import _TokenBucket
 from api_chaos_agent.core.security import (
-    CurrentUser,
     _decode_token,
     create_access_token,
     get_current_user,
@@ -57,8 +57,10 @@ from api_chaos_agent.models.scenario import (
     ChaosScenarioType,
     ErrorStatusConfig,
     LatencyConfig,
-    RateLimitConfig as ScenarioRateLimitConfig,
     TamperingConfig,
+)
+from api_chaos_agent.models.scenario import (
+    RateLimitConfig as ScenarioRateLimitConfig,
 )
 from api_chaos_agent.models.schema import (
     APISpec,
@@ -191,9 +193,7 @@ class TestSchemaModels:
         rb = RequestBody(
             content_type="application/json",
             required=True,
-            fields=[
-                FieldConstraint(field_name="name", field_type=FieldType.STRING, required=True)
-            ],
+            fields=[FieldConstraint(field_name="name", field_type=FieldType.STRING, required=True)],
         )
         assert rb.content_type == "application/json"
         assert rb.required is True
@@ -501,9 +501,7 @@ class TestSecurity:
 
     @pytest.mark.asyncio
     async def test_get_current_user_auth_disabled(self):
-        from fastapi.security import HTTPAuthorizationCredentials
 
-        original = settings.auth.enabled
         try:
             if hasattr(settings.auth, "enabled"):
                 pass
@@ -976,7 +974,9 @@ class TestExecutionEngine:
             async def handle_async_request(self, request):
                 raise httpx.ConnectError("Connection refused")
 
-        config = ExecutionConfig(base_url="http://testserver", concurrency=1, timeout_seconds=5.0, max_retries=0)
+        config = ExecutionConfig(
+            base_url="http://testserver", concurrency=1, timeout_seconds=5.0, max_retries=0
+        )
         engine = ExecutionEngine(config=config, transport=FailingTransport())
         scenario = _make_scenario(ChaosScenarioType.ERROR_STATUS, config={"status_code": 500})
         result = await engine.execute([scenario])
@@ -1049,9 +1049,7 @@ class TestSchemaParser:
 
     def test_parse_invalid_json(self):
         parser = SchemaParser()
-        with tempfile.NamedTemporaryFile(
-            suffix=".json", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
             f.write("{invalid json")
             f.flush()
             try:
@@ -1062,9 +1060,7 @@ class TestSchemaParser:
 
     def test_parse_missing_openapi_field(self):
         parser = SchemaParser()
-        with tempfile.NamedTemporaryFile(
-            suffix=".json", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
             json.dump({"info": {"title": "Test"}}, f)
             f.flush()
             try:
@@ -1075,9 +1071,7 @@ class TestSchemaParser:
 
     def test_parse_valid_json_spec(self):
         parser = SchemaParser()
-        with tempfile.NamedTemporaryFile(
-            suffix=".json", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
             spec = {
                 "openapi": "3.0.0",
                 "info": {"title": "Test API", "version": "1.0.0"},
@@ -1104,9 +1098,7 @@ class TestSchemaParser:
 
     def test_parse_valid_yaml_spec(self):
         parser = SchemaParser()
-        with tempfile.NamedTemporaryFile(
-            suffix=".yaml", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False, mode="w") as f:
             import yaml
 
             spec = {
@@ -1154,9 +1146,7 @@ class TestSchemaParser:
         assert fields == []
 
     def test_extract_base_url(self):
-        result = SchemaParser._extract_base_url(
-            {"servers": [{"url": "https://api.example.com"}]}
-        )
+        result = SchemaParser._extract_base_url({"servers": [{"url": "https://api.example.com"}]})
         assert result == "https://api.example.com"
 
     def test_extract_base_url_no_servers(self):
@@ -1165,9 +1155,7 @@ class TestSchemaParser:
 
     def test_parse_with_parameters(self):
         parser = SchemaParser()
-        with tempfile.NamedTemporaryFile(
-            suffix=".json", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
             spec = {
                 "openapi": "3.0.0",
                 "info": {"title": "Param API", "version": "1.0"},
@@ -1413,7 +1401,9 @@ class TestLLMRouter:
     def test_classify_complex(self):
         router = LLMRouter(config={"openai_api_key": "", "anthropic_api_key": ""})
         assert router.classify_complexity("multi-step chained scenario") == TaskComplexity.COMPLEX
-        assert router.classify_complexity("analyze business logic exploit") == TaskComplexity.COMPLEX
+        assert (
+            router.classify_complexity("analyze business logic exploit") == TaskComplexity.COMPLEX
+        )
 
     def test_classify_medium(self):
         router = LLMRouter(config={"openai_api_key": "", "anthropic_api_key": ""})

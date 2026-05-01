@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 import httpx
@@ -105,10 +104,14 @@ async def test_execute_rate_limit() -> None:
 @pytest.mark.asyncio
 async def test_execute_serial() -> None:
     transport = MockTransport(200)
-    config = ExecutionConfig(base_url="http://testserver", concurrency=1, timeout_seconds=5.0, serial=True)
+    config = ExecutionConfig(
+        base_url="http://testserver", concurrency=1, timeout_seconds=5.0, serial=True
+    )
     engine = ExecutionEngine(config=config, transport=transport)
 
-    scenarios = [_make_scenario(ChaosScenarioType.LATENCY, config={"delay_ms": 0}) for _ in range(3)]
+    scenarios = [
+        _make_scenario(ChaosScenarioType.LATENCY, config={"delay_ms": 0}) for _ in range(3)
+    ]
     result = await engine.execute(scenarios)
     assert result.completed_scenarios == 3
 
@@ -119,7 +122,9 @@ async def test_execute_connection_error() -> None:
         async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
             raise httpx.ConnectError("Connection refused")
 
-    config = ExecutionConfig(base_url="http://testserver", concurrency=1, timeout_seconds=5.0, max_retries=0)
+    config = ExecutionConfig(
+        base_url="http://testserver", concurrency=1, timeout_seconds=5.0, max_retries=0
+    )
     engine = ExecutionEngine(config=config, transport=FailingTransport())
 
     scenario = _make_scenario(ChaosScenarioType.ERROR_STATUS, config={"status_code": 500})
@@ -166,7 +171,11 @@ async def test_backoff_calculation() -> None:
     for attempt in range(5):
         delay = engine._calculate_backoff(attempt)
         assert delay >= 0
-        assert delay <= settings.execution.backoff_max + settings.execution.backoff_max * settings.execution.jitter_factor
+        assert (
+            delay
+            <= settings.execution.backoff_max
+            + settings.execution.backoff_max * settings.execution.jitter_factor
+        )
 
 
 from api_chaos_agent.core.config import settings

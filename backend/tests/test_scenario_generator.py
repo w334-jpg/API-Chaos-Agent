@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -105,20 +105,25 @@ def generator() -> ScenarioGenerator:
 @pytest.fixture
 def generator_with_llm() -> ScenarioGenerator:
     mock_router = AsyncMock()
-    mock_router.route.return_value = json.dumps([
-        {
-            "name": "LLM: SQL injection in username",
-            "type": "request_tampering",
-            "config": {"tamper_type": "inject", "field_path": "username", "tamper_value": "' OR 1=1 --"},
-            "severity": "critical",
-        }
-    ])
+    mock_router.route.return_value = json.dumps(
+        [
+            {
+                "name": "LLM: SQL injection in username",
+                "type": "request_tampering",
+                "config": {
+                    "tamper_type": "inject",
+                    "field_path": "username",
+                    "tamper_value": "' OR 1=1 --",
+                },
+                "severity": "critical",
+            }
+        ]
+    )
     gen = ScenarioGenerator(llm_router=mock_router)
     return gen
 
 
 class TestLatencyScenarios:
-
     @pytest.mark.asyncio
     async def test_generates_latency_scenarios(self, generator, endpoint_with_body):
         scenarios = generator._latency_scenarios(endpoint_with_body)
@@ -156,7 +161,6 @@ class TestLatencyScenarios:
 
 
 class TestErrorScenarios:
-
     @pytest.mark.asyncio
     async def test_generates_error_scenarios(self, generator, endpoint_with_body):
         scenarios = generator._error_status_scenarios(endpoint_with_body)
@@ -181,7 +185,6 @@ class TestErrorScenarios:
 
 
 class TestTamperingScenarios:
-
     @pytest.mark.asyncio
     async def test_generates_tampering_scenarios_for_fields(self, generator, endpoint_with_body):
         scenarios = generator._tampering_scenarios(endpoint_with_body)
@@ -218,7 +221,6 @@ class TestTamperingScenarios:
 
 
 class TestRateLimitScenarios:
-
     @pytest.mark.asyncio
     async def test_generates_rate_limit_scenarios(self, generator, endpoint_with_body):
         scenarios = generator._rate_limit_scenarios(endpoint_with_body)
@@ -247,7 +249,6 @@ class TestRateLimitScenarios:
 
 
 class TestGenerateForEndpoint:
-
     @pytest.mark.asyncio
     async def test_generate_all_four_types(self, generator, endpoint_with_body):
         scenarios = await generator._generate_for_endpoint(endpoint_with_body)
@@ -274,7 +275,6 @@ class TestGenerateForEndpoint:
 
 
 class TestGenerate:
-
     @pytest.mark.asyncio
     async def test_generate_processes_all_endpoints(self, generator, api_spec):
         scenarios = await generator.generate(api_spec)
@@ -291,7 +291,6 @@ class TestGenerate:
 
 
 class TestRequestBodyPresence:
-
     @pytest.mark.asyncio
     async def test_endpoint_with_body_generates_tampering(self, generator, endpoint_with_body):
         scenarios = await generator._generate_for_endpoint(endpoint_with_body)
@@ -299,18 +298,19 @@ class TestRequestBodyPresence:
         assert len(tampering) > 0
 
     @pytest.mark.asyncio
-    async def test_endpoint_without_body_has_header_injection(self, generator, endpoint_without_body):
+    async def test_endpoint_without_body_has_header_injection(
+        self, generator, endpoint_without_body
+    ):
         scenarios = await generator._generate_for_endpoint(endpoint_without_body)
         tampering = [s for s in scenarios if s.scenario_type == ChaosScenarioType.REQUEST_TAMPERING]
         assert len(tampering) > 0
 
 
 class TestLLMEnhancement:
-
     @pytest.mark.asyncio
     async def test_llm_enhances_scenarios(self, generator_with_llm, endpoint_with_body):
         spec = APISpec(title="Test", version="1.0.0", endpoints=[endpoint_with_body])
-        scenarios = await generator_with_llm.generate(spec)
+        await generator_with_llm.generate(spec)
         generator_with_llm._llm_router.route.assert_awaited()
 
     @pytest.mark.asyncio
@@ -332,7 +332,6 @@ class TestLLMEnhancement:
 
 
 class TestUniqueIds:
-
     @pytest.mark.asyncio
     async def test_all_scenario_ids_are_unique(self, generator, api_spec):
         scenarios = await generator.generate(api_spec)
@@ -347,7 +346,6 @@ class TestUniqueIds:
 
 
 class TestSeverityAssignment:
-
     @pytest.mark.asyncio
     async def test_latency_scenarios_have_severity(self, generator, endpoint_with_body):
         scenarios = generator._latency_scenarios(endpoint_with_body)
@@ -361,7 +359,9 @@ class TestSeverityAssignment:
             assert isinstance(s.severity, Severity)
 
     @pytest.mark.asyncio
-    async def test_tampering_scenarios_have_high_or_critical_severity(self, generator, endpoint_with_body):
+    async def test_tampering_scenarios_have_high_or_critical_severity(
+        self, generator, endpoint_with_body
+    ):
         scenarios = generator._tampering_scenarios(endpoint_with_body)
         for s in scenarios:
             assert s.severity in (Severity.HIGH, Severity.CRITICAL, Severity.MEDIUM)
@@ -374,13 +374,24 @@ class TestSeverityAssignment:
 
 
 class TestLLMResponseParsing:
-
     @pytest.mark.asyncio
     async def test_parse_json_array_response(self, generator, endpoint_with_body):
-        response = json.dumps([
-            {"name": "Test 1", "type": "latency", "config": {"delay_ms": 3000}, "severity": "high"},
-            {"name": "Test 2", "type": "error_status", "config": {"status_code": 503}, "severity": "critical"},
-        ])
+        response = json.dumps(
+            [
+                {
+                    "name": "Test 1",
+                    "type": "latency",
+                    "config": {"delay_ms": 3000},
+                    "severity": "high",
+                },
+                {
+                    "name": "Test 2",
+                    "type": "error_status",
+                    "config": {"status_code": 503},
+                    "severity": "critical",
+                },
+            ]
+        )
         scenarios = generator._parse_llm_response(response, endpoint_with_body)
         assert len(scenarios) == 2
         assert scenarios[0].scenario_type == ChaosScenarioType.LATENCY
@@ -388,7 +399,9 @@ class TestLLMResponseParsing:
 
     @pytest.mark.asyncio
     async def test_parse_json_with_code_block(self, generator, endpoint_with_body):
-        response = '```json\n[{"name": "Test", "type": "latency", "config": {}, "severity": "low"}]\n```'
+        response = (
+            '```json\n[{"name": "Test", "type": "latency", "config": {}, "severity": "low"}]\n```'
+        )
         scenarios = generator._parse_llm_response(response, endpoint_with_body)
         assert len(scenarios) == 1
 
@@ -407,7 +420,6 @@ class TestLLMResponseParsing:
 
 
 class TestBuildPrompt:
-
     def test_build_prompt_includes_endpoint_info(self, generator, endpoint_with_body):
         prompt = generator._build_prompt(endpoint_with_body)
         assert "POST" in prompt
