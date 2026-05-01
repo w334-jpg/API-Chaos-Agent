@@ -16,13 +16,13 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import Annotated
 
 from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.security import OAuth2PasswordRequestForm
-from typing import Annotated
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
@@ -30,12 +30,22 @@ from starlette.responses import Response
 from api_chaos_agent.core.api_versioning import APIVersionMiddleware
 from api_chaos_agent.core.config import settings
 from api_chaos_agent.core.error_handlers import register_exception_handlers
-from api_chaos_agent.core.logging import setup_logging, get_logger
+from api_chaos_agent.core.logging import get_logger, setup_logging
 from api_chaos_agent.core.rate_limit import RateLimitMiddleware
 from api_chaos_agent.core.security import create_access_token
-from api_chaos_agent.routers import schema, scenarios, execution, reports
-from api_chaos_agent.routers import schemas_v2, distributed, plugins, cicd, tenants, analytics
-from api_chaos_agent.routers import plans
+from api_chaos_agent.routers import (
+    analytics,
+    cicd,
+    distributed,
+    execution,
+    plans,
+    plugins,
+    reports,
+    scenarios,
+    schema,
+    schemas_v2,
+    tenants,
+)
 from api_chaos_agent.routers import license as license_router
 from api_chaos_agent.services.store import store
 
@@ -189,6 +199,7 @@ async def health_check() -> dict:
 
     try:
         import httpx
+
         async with httpx.AsyncClient(timeout=3.0) as client:
             ollama_url = f"{settings.llm.ollama_base_url}/api/tags"
             resp = await client.get(ollama_url)
@@ -227,9 +238,13 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> d
         token = create_access_token(subject=form_data.username)
         return {"access_token": token, "token_type": "bearer"}
     import hashlib
-    client_hash = hashlib.sha256(f"{form_data.username}:{form_data.password}".encode()).hexdigest()[:8]
+
+    client_hash = hashlib.sha256(f"{form_data.username}:{form_data.password}".encode()).hexdigest()[
+        :8
+    ]
     logger.warning("auth_login_failed", username_hash=client_hash)
     from api_chaos_agent.core.exceptions import AuthenticationError
+
     raise AuthenticationError(detail="Invalid credentials")
 
 
@@ -245,13 +260,15 @@ async def ws_execution_progress(websocket: WebSocket, execution_id: str) -> None
             else:
                 result = await store.get_execution(execution_id)
                 if result:
-                    await websocket.send_json({
-                        "type": "execution_status",
-                        "execution_id": execution_id,
-                        "total": result.total_scenarios,
-                        "completed": result.completed_scenarios,
-                        "failed": result.failed_scenarios,
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "execution_status",
+                            "execution_id": execution_id,
+                            "total": result.total_scenarios,
+                            "completed": result.completed_scenarios,
+                            "failed": result.failed_scenarios,
+                        }
+                    )
                 else:
                     await websocket.send_json({"type": "error", "message": "Execution not found"})
     except WebSocketDisconnect:

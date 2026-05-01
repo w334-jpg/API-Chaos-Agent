@@ -78,7 +78,11 @@ class BuiltinResourceExhaustionPlugin:
         }
 
     def validate_config(self, config: dict[str, Any]) -> bool:
-        return "resource_type" in config and config["resource_type"] in ("memory", "cpu", "connections")
+        return "resource_type" in config and config["resource_type"] in (
+            "memory",
+            "cpu",
+            "connections",
+        )
 
 
 class BuiltinDataCorruptionPlugin:
@@ -94,7 +98,10 @@ class BuiltinDataCorruptionPlugin:
         config_schema={
             "type": "object",
             "properties": {
-                "corruption_type": {"type": "string", "enum": ["encoding", "truncation", "injection", "null_bytes"]},
+                "corruption_type": {
+                    "type": "string",
+                    "enum": ["encoding", "truncation", "injection", "null_bytes"],
+                },
                 "target_field": {"type": "string"},
                 "corruption_value": {"type": "string"},
             },
@@ -129,7 +136,10 @@ class BuiltinDependencyFailurePlugin:
         config_schema={
             "type": "object",
             "properties": {
-                "failure_type": {"type": "string", "enum": ["timeout", "circuit_break", "cascade", "refused"]},
+                "failure_type": {
+                    "type": "string",
+                    "enum": ["timeout", "circuit_break", "cascade", "refused"],
+                },
                 "dependency_name": {"type": "string"},
                 "failure_rate": {"type": "number", "minimum": 0, "maximum": 1},
             },
@@ -164,7 +174,10 @@ class BuiltinNetworkPartitionPlugin:
         config_schema={
             "type": "object",
             "properties": {
-                "partition_type": {"type": "string", "enum": ["latency_spike", "packet_loss", "dns_failure", "blackhole"]},
+                "partition_type": {
+                    "type": "string",
+                    "enum": ["latency_spike", "packet_loss", "dns_failure", "blackhole"],
+                },
                 "target_host": {"type": "string"},
                 "duration_seconds": {"type": "integer", "minimum": 1},
                 "loss_rate": {"type": "number", "minimum": 0, "maximum": 1},
@@ -227,7 +240,9 @@ class PluginManager:
                 fp = FaultPlugin(id=str(uuid.uuid4()), manifest=manifest)
                 self._plugins[fp.manifest.name] = fp
                 loaded.append(fp)
-                logger.info("plugin_loaded_from_dir", name=fp.manifest.name, path=str(manifest_file))
+                logger.info(
+                    "plugin_loaded_from_dir", name=fp.manifest.name, path=str(manifest_file)
+                )
             except Exception as e:
                 logger.error("plugin_load_failed", path=str(manifest_file), error=str(e))
         return loaded
@@ -241,7 +256,9 @@ class PluginManager:
             if not isinstance(instance, FaultPluginInterface):
                 logger.error("plugin_interface_mismatch", path=module_path)
                 return None
-            fp = FaultPlugin(id=str(uuid.uuid4()), manifest=instance.manifest, status=PluginStatus.ENABLED)
+            fp = FaultPlugin(
+                id=str(uuid.uuid4()), manifest=instance.manifest, status=PluginStatus.ENABLED
+            )
             self._plugins[fp.manifest.name] = fp
             self._instances[fp.manifest.name] = instance
             return fp

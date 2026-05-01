@@ -5,13 +5,12 @@ from __future__ import annotations
 import os
 from typing import Annotated
 
-from fastapi import APIRouter, Query
-
 import httpx
+from fastapi import APIRouter, Query
 
 from api_chaos_agent.core.config import settings
 from api_chaos_agent.core.deps import StoreDep
-from api_chaos_agent.core.exceptions import ExecutionError, NotFoundError, RequestError
+from api_chaos_agent.core.exceptions import NotFoundError, RequestError
 from api_chaos_agent.core.security import CurrentUser
 from api_chaos_agent.models.report import ExecutionConfig, TestResult
 from api_chaos_agent.models.scenario import ChaosScenario

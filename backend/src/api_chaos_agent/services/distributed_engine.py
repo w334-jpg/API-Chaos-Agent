@@ -15,12 +15,9 @@ Implements a Master-Worker architecture with:
 from __future__ import annotations
 
 import asyncio
-import time
 import uuid
 from datetime import datetime
-from typing import Any
 
-from api_chaos_agent.core.config import settings
 from api_chaos_agent.core.logging import get_logger
 from api_chaos_agent.models.distributed import (
     DistributedExecutionPlan,
@@ -147,12 +144,14 @@ class TaskDistributor:
             worker_buckets[idx % len(workers)].append(scenario.id)
         for worker_idx, scenario_ids in worker_buckets.items():
             if scenario_ids:
-                tasks.append(DistributedTask(
-                    id=str(uuid.uuid4()),
-                    execution_id=execution_id,
-                    worker_id=workers[worker_idx].id,
-                    scenario_ids=scenario_ids,
-                ))
+                tasks.append(
+                    DistributedTask(
+                        id=str(uuid.uuid4()),
+                        execution_id=execution_id,
+                        worker_id=workers[worker_idx].id,
+                        scenario_ids=scenario_ids,
+                    )
+                )
         return tasks
 
     def _distribute_least_loaded(
@@ -169,7 +168,9 @@ class TaskDistributor:
             region = w.capabilities.region
             region_workers.setdefault(region, []).append(w)
         tasks: list[DistributedTask] = []
-        scenario_chunks = [scenarios[i::max(1, len(region_workers))] for i in range(max(1, len(region_workers)))]
+        scenario_chunks = [
+            scenarios[i :: max(1, len(region_workers))] for i in range(max(1, len(region_workers)))
+        ]
         for idx, (region, rworkers) in enumerate(region_workers.items()):
             if idx < len(scenario_chunks):
                 chunk = scenario_chunks[idx]

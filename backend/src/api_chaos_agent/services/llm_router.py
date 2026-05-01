@@ -20,7 +20,7 @@ import hashlib
 import json
 import re
 import time
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 import diskcache
@@ -34,28 +34,52 @@ from api_chaos_agent.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-class TaskComplexity(str, Enum):
+class TaskComplexity(StrEnum):
     SIMPLE = "simple"
     MEDIUM = "medium"
     COMPLEX = "complex"
 
 
 _SIMPLE_KEYWORDS: list[str] = [
-    "change field type", "change type", "field type", "boundary value",
-    "boundary", "null", "empty string", "replace with null",
-    "replace with empty", "type mutation", "type change", "mutate type",
+    "change field type",
+    "change type",
+    "field type",
+    "boundary value",
+    "boundary",
+    "null",
+    "empty string",
+    "replace with null",
+    "replace with empty",
+    "type mutation",
+    "type change",
+    "mutate type",
 ]
 
 _COMPLEX_KEYWORDS: list[str] = [
-    "multi-step", "chained", "chain", "scenario", "adversarial",
-    "business logic", "exploit", "privilege escalation",
-    "authentication bypass", "design", "analyze", "reason", "complex",
+    "multi-step",
+    "chained",
+    "chain",
+    "scenario",
+    "adversarial",
+    "business logic",
+    "exploit",
+    "privilege escalation",
+    "authentication bypass",
+    "design",
+    "analyze",
+    "reason",
+    "complex",
 ]
 
 _RULE_MUTATIONS: dict[str, str] = {
-    "integer": "string", "int": "string", "number": "string",
-    "float": "string", "double": "string", "boolean": "string",
-    "string": "integer", "str": "int",
+    "integer": "string",
+    "int": "string",
+    "number": "string",
+    "float": "string",
+    "double": "string",
+    "boolean": "string",
+    "string": "integer",
+    "str": "int",
 }
 
 _BOUNDARY_VALUES: dict[str, list[str]] = {
@@ -97,7 +121,9 @@ class CircuitBreaker:
         self._last_failure_time = time.monotonic()
         if self._failure_count >= self._failure_threshold:
             self._state = "open"
-            logger.warning("Circuit breaker opened due to %d consecutive failures", self._failure_count)
+            logger.warning(
+                "Circuit breaker opened due to %d consecutive failures", self._failure_count
+            )
 
     def is_available(self) -> bool:
         return self.state != "open"
@@ -154,6 +180,7 @@ class LLMRouter:
         if self._http_client is not None and not self._http_client.is_closed:
             try:
                 import asyncio
+
                 try:
                     loop = asyncio.get_running_loop()
                     loop.create_task(self._http_client.aclose())
@@ -228,7 +255,17 @@ class LLMRouter:
     async def _call_rule_engine(self, prompt: str) -> str:
         lower = prompt.lower()
 
-        if any(kw in lower for kw in ("change field type", "change type", "field type", "type mutation", "type change", "mutate type")):
+        if any(
+            kw in lower
+            for kw in (
+                "change field type",
+                "change type",
+                "field type",
+                "type mutation",
+                "type change",
+                "mutate type",
+            )
+        ):
             return self._generate_type_mutation(prompt)
 
         if "boundary" in lower:
@@ -353,17 +390,27 @@ class LLMRouter:
         field_match = re.search(r"['\"](\w+)['\"]", prompt)
         field_name = field_match.group(1) if field_match else "field"
 
-        return json.dumps({
-            "mutation": "type_change",
-            "field": field_name,
-            "from_type": source_type,
-            "to_type": target_type,
-            "value_hint": f"<{target_type}_value>",
-        })
+        return json.dumps(
+            {
+                "mutation": "type_change",
+                "field": field_name,
+                "from_type": source_type,
+                "to_type": target_type,
+                "value_hint": f"<{target_type}_value>",
+            }
+        )
 
     def _generate_boundary_values(self, prompt: str) -> str:
         lower = prompt.lower()
         for type_name, values in _BOUNDARY_VALUES.items():
             if type_name in lower:
-                return json.dumps({"mutation": "boundary_values", "type": type_name, "values": values})
-        return json.dumps({"mutation": "boundary_values", "type": "integer", "values": _BOUNDARY_VALUES["integer"]})
+                return json.dumps(
+                    {"mutation": "boundary_values", "type": type_name, "values": values}
+                )
+        return json.dumps(
+            {
+                "mutation": "boundary_values",
+                "type": "integer",
+                "values": _BOUNDARY_VALUES["integer"],
+            }
+        )

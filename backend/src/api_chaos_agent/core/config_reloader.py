@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import hashlib
 import threading
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Callable
 
-from api_chaos_agent.core.config import AppConfig, settings
+from api_chaos_agent.core.config import AppConfig
 from api_chaos_agent.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -53,6 +53,7 @@ class ConfigReloader:
 
     def _notify(self, new_config: AppConfig) -> None:
         import api_chaos_agent.core.config as config_mod
+
         with self._lock:
             old_config = config_mod.settings
             config_mod.settings = new_config
@@ -85,6 +86,7 @@ class ConfigReloader:
 
     def _load_config(self) -> AppConfig:
         import api_chaos_agent.core.config as config_mod
+
         old = config_mod.settings
         try:
             import tomllib
@@ -130,6 +132,7 @@ class ConfigReloader:
 
     def _watch_loop(self) -> None:
         import time
+
         while self._running:
             try:
                 self.check_and_reload()

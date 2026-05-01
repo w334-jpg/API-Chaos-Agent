@@ -68,7 +68,9 @@ class SchemaParser:
             raise ValueError(f"Failed to parse file '{file_path}': {exc}") from exc
 
         if not isinstance(raw_spec, dict):
-            raise ValueError(f"Invalid OpenAPI spec: expected a mapping, got {type(raw_spec).__name__}")
+            raise ValueError(
+                f"Invalid OpenAPI spec: expected a mapping, got {type(raw_spec).__name__}"
+            )
         if "openapi" not in raw_spec:
             raise ValueError("Invalid OpenAPI spec: missing 'openapi' version field.")
 
@@ -123,12 +125,12 @@ class SchemaParser:
                     path_item.get("parameters", []) + operation.get("parameters", [])
                 )
 
-                request_body = self._parse_request_body(
-                    operation.get("requestBody"), components
-                )
+                request_body = self._parse_request_body(operation.get("requestBody"), components)
 
                 raw_operation = raw_path_item.get(method_lower, {})
-                raw_responses = raw_operation.get("responses", {}) if isinstance(raw_operation, dict) else {}
+                raw_responses = (
+                    raw_operation.get("responses", {}) if isinstance(raw_operation, dict) else {}
+                )
                 responses = self._parse_responses(operation.get("responses", {}), raw_responses)
 
                 endpoint = Endpoint(
@@ -159,7 +161,9 @@ class SchemaParser:
             for prop_name, prop_schema in properties.items():
                 if not isinstance(prop_schema, dict):
                     continue
-                field = self._build_field_constraint(prop_name, prop_schema, prop_name in required_fields)
+                field = self._build_field_constraint(
+                    prop_name, prop_schema, prop_name in required_fields
+                )
                 fields.append(field)
             return fields
 
@@ -201,7 +205,9 @@ class SchemaParser:
             result.append(parameter)
         return result
 
-    def _parse_request_body(self, request_body: dict | None, components: dict) -> RequestBody | None:
+    def _parse_request_body(
+        self, request_body: dict | None, components: dict
+    ) -> RequestBody | None:
         if not request_body:
             return None
 

@@ -10,7 +10,6 @@ growth in long-running deployments.
 from __future__ import annotations
 
 import time
-from collections import defaultdict
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint

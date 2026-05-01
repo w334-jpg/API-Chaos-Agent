@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from api_chaos_agent.core.exceptions import NotFoundError, RequestError, SchemaError
-
 from api_chaos_agent.core.deps import CiCdServiceDep
+from api_chaos_agent.core.exceptions import NotFoundError, RequestError
 from api_chaos_agent.models.cicd import CiCdProvider, Pipeline, PipelineConfig, PipelineRun
 
 router = APIRouter(prefix="/api/v2/cicd", tags=["cicd"])
@@ -54,7 +53,9 @@ async def generate_pipeline_config(service: CiCdServiceDep, pipeline_id: str):
 
 
 @router.post("/pipelines/{pipeline_id}/trigger", response_model=PipelineRun)
-async def trigger_pipeline(service: CiCdServiceDep, pipeline_id: str, commit_sha: str | None = None):
+async def trigger_pipeline(
+    service: CiCdServiceDep, pipeline_id: str, commit_sha: str | None = None
+):
     run = service.trigger_run(pipeline_id, commit_sha=commit_sha)
     if not run:
         raise RequestError(detail="Pipeline not found or disabled")

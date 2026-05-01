@@ -11,16 +11,14 @@ unless your organization qualifies under the Additional Use Grant.
 
 from __future__ import annotations
 
-
 import hashlib
 import hmac
 import json
 import os
 import time
 from datetime import datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -36,37 +34,39 @@ BSL_HEADER = (
     "# unless your organization qualifies under the Additional Use Grant.\n"
 )
 
-BSL_PROTECTED_MODULES = frozenset({
-    "api_chaos_agent.services.grpc_graphql_parser",
-    "api_chaos_agent.services.distributed_engine",
-    "api_chaos_agent.services.plugin_framework",
-    "api_chaos_agent.services.cicd_service",
-    "api_chaos_agent.services.tenant_service",
-    "api_chaos_agent.services.analytics_service",
-    "api_chaos_agent.models.analytics",
-    "api_chaos_agent.models.cicd",
-    "api_chaos_agent.models.distributed",
-    "api_chaos_agent.models.plugin",
-    "api_chaos_agent.models.tenant",
-    "api_chaos_agent.routers.schemas_v2",
-    "api_chaos_agent.routers.distributed",
-    "api_chaos_agent.routers.plugins",
-    "api_chaos_agent.routers.cicd",
-    "api_chaos_agent.routers.tenants",
-    "api_chaos_agent.routers.analytics",
-    "api_chaos_agent.routers.plans",
-    "api_chaos_agent.core.feature_gates",
-})
+BSL_PROTECTED_MODULES = frozenset(
+    {
+        "api_chaos_agent.services.grpc_graphql_parser",
+        "api_chaos_agent.services.distributed_engine",
+        "api_chaos_agent.services.plugin_framework",
+        "api_chaos_agent.services.cicd_service",
+        "api_chaos_agent.services.tenant_service",
+        "api_chaos_agent.services.analytics_service",
+        "api_chaos_agent.models.analytics",
+        "api_chaos_agent.models.cicd",
+        "api_chaos_agent.models.distributed",
+        "api_chaos_agent.models.plugin",
+        "api_chaos_agent.models.tenant",
+        "api_chaos_agent.routers.schemas_v2",
+        "api_chaos_agent.routers.distributed",
+        "api_chaos_agent.routers.plugins",
+        "api_chaos_agent.routers.cicd",
+        "api_chaos_agent.routers.tenants",
+        "api_chaos_agent.routers.analytics",
+        "api_chaos_agent.routers.plans",
+        "api_chaos_agent.core.feature_gates",
+    }
+)
 
 
-class LicenseType(str, Enum):
+class LicenseType(StrEnum):
     BSL = "bsl"
     COMMERCIAL_PRO = "commercial_pro"
     COMMERCIAL_ENTERPRISE = "commercial_enterprise"
     TRIAL = "trial"
 
 
-class LicenseStatus(str, Enum):
+class LicenseStatus(StrEnum):
     VALID = "valid"
     EXPIRED = "expired"
     INVALID = "invalid"
@@ -118,16 +118,12 @@ _LICENSE_FILE_PATHS = [
 
 
 def _verify_signature(payload: str, signature: str) -> bool:
-    expected = hmac.new(
-        _LICENSE_SECRET.encode(), payload.encode(), hashlib.sha256
-    ).hexdigest()
+    expected = hmac.new(_LICENSE_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, signature)
 
 
 def _generate_signature(payload: str) -> str:
-    return hmac.new(
-        _LICENSE_SECRET.encode(), payload.encode(), hashlib.sha256
-    ).hexdigest()
+    return hmac.new(_LICENSE_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()
 
 
 def _read_license_file() -> str | None:
@@ -149,19 +145,24 @@ def _parse_license_key(key: str) -> LicenseInfo | None:
             return None
         header_b64, payload_b64, signature = parts
         import base64
+
         payload_json = base64.urlsafe_b64decode(payload_b64 + "==")
         payload = json.loads(payload_json)
         if not _verify_signature(payload_b64, signature):
             logger.warning("license_signature_invalid")
             return None
-        expires_at = datetime.fromisoformat(payload["expires_at"]) if payload.get("expires_at") else None
+        expires_at = (
+            datetime.fromisoformat(payload["expires_at"]) if payload.get("expires_at") else None
+        )
         if expires_at and datetime.now() > expires_at:
             return LicenseInfo(
                 license_type=LicenseType(payload.get("type", "bsl")),
                 status=LicenseStatus.EXPIRED,
                 holder=payload.get("holder", ""),
                 plan=TenantPlan(payload.get("plan", "free")),
-                issued_at=datetime.fromisoformat(payload["issued_at"]) if payload.get("issued_at") else None,
+                issued_at=datetime.fromisoformat(payload["issued_at"])
+                if payload.get("issued_at")
+                else None,
                 expires_at=expires_at,
                 features=payload.get("features", []),
                 max_seats=payload.get("max_seats", 1),
@@ -172,7 +173,9 @@ def _parse_license_key(key: str) -> LicenseInfo | None:
             status=LicenseStatus.VALID,
             holder=payload.get("holder", ""),
             plan=TenantPlan(payload.get("plan", "free")),
-            issued_at=datetime.fromisoformat(payload["issued_at"]) if payload.get("issued_at") else None,
+            issued_at=datetime.fromisoformat(payload["issued_at"])
+            if payload.get("issued_at")
+            else None,
             expires_at=expires_at,
             features=payload.get("features", []),
             max_seats=payload.get("max_seats", 1),
@@ -226,7 +229,9 @@ class LicenseManager:
                 self._last_check = now
                 return info
             if info and info.status == LicenseStatus.EXPIRED:
-                logger.warning("license_expired", holder=info.holder, expires_at=str(info.expires_at))
+                logger.warning(
+                    "license_expired", holder=info.holder, expires_at=str(info.expires_at)
+                )
                 self._license_info = info
                 self._last_check = now
                 return info
@@ -266,17 +271,19 @@ class LicenseManager:
     def require_pro(self) -> None:
         if not self.can_use_pro_features():
             from api_chaos_agent.core.exceptions import SecurityError
+
             raise SecurityError(
                 detail="This feature requires a Professional or Enterprise license. "
-                       "Visit /pricing for details or contact license@api-chaos-agent.dev",
+                "Visit /pricing for details or contact license@api-chaos-agent.dev",
             )
 
     def require_enterprise(self) -> None:
         if not self.can_use_enterprise_features():
             from api_chaos_agent.core.exceptions import SecurityError
+
             raise SecurityError(
                 detail="This feature requires an Enterprise license. "
-                       "Contact license@api-chaos-agent.dev for pricing.",
+                "Contact license@api-chaos-agent.dev for pricing.",
             )
 
     def install_license(self, key: str) -> LicenseInfo:
@@ -309,6 +316,7 @@ license_manager = LicenseManager()
 
 def generate_trial_license(holder: str, days: int = 30) -> str:
     import base64
+
     now = datetime.now()
     expires = now + timedelta(days=days)
     payload = {
@@ -317,9 +325,16 @@ def generate_trial_license(holder: str, days: int = 30) -> str:
         "plan": "pro",
         "issued_at": now.isoformat(),
         "expires_at": expires.isoformat(),
-        "features": ["distributed_execution", "custom_plugins", "cicd_integration",
-                     "advanced_analytics", "graphql_support", "grpc_support",
-                     "team_collaboration", "api_key_management"],
+        "features": [
+            "distributed_execution",
+            "custom_plugins",
+            "cicd_integration",
+            "advanced_analytics",
+            "graphql_support",
+            "grpc_support",
+            "team_collaboration",
+            "api_key_management",
+        ],
         "max_seats": 5,
         "is_production": True,
     }

@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from api_chaos_agent.core.exceptions import NotFoundError, RequestError, SchemaError
-
 from api_chaos_agent.core.deps import DistributedEngineDep
+from api_chaos_agent.core.exceptions import NotFoundError, RequestError
 from api_chaos_agent.models.distributed import (
     DistributedExecutionPlan,
     Worker,

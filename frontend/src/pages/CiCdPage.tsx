@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { GitBranch, Plus, Play, FileCode2, Trash2 } from "lucide-react"
+import { GitBranch, Play, Trash2 } from "lucide-react"
 
 interface Pipeline {
     id: string

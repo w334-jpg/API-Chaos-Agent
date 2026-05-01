@@ -12,11 +12,12 @@ unless your organization qualifies under the Additional Use Grant.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
 
 from api_chaos_agent.core.exceptions import AuthenticationError, SecurityError
-from api_chaos_agent.models.tenant import TenantPlan, TenantQuota, PRO_QUOTA, ENTERPRISE_QUOTA
+from api_chaos_agent.models.tenant import ENTERPRISE_QUOTA, PRO_QUOTA, TenantPlan, TenantQuota
 
 FEATURE_GATES: dict[str, dict[str, bool]] = {
     "distributed_execution": {"free": False, "pro": True, "enterprise": True},
@@ -77,7 +78,9 @@ def require_plan(*allowed_plans: TenantPlan):
                     detail=f"This feature requires {allowed_names} plan or above",
                 )
             return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -95,10 +98,15 @@ def require_feature(feature: str):
                 raise AuthenticationError(detail="Tenant context required")
             if not is_feature_available(tenant.plan, feature):
                 raise SecurityError(
-                    detail=f"Feature '{feature}' is not available on your current plan ({tenant.plan.value}). Please upgrade.",
+                    detail=(
+                        f"Feature '{feature}' is not available on your "
+                        f"current plan ({tenant.plan.value}). Please upgrade."
+                    ),
                 )
             return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 

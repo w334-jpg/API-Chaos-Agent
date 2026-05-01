@@ -7,13 +7,13 @@ quotas, team membership, and invitations.
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class TenantPlan(str, Enum):
+class TenantPlan(StrEnum):
     """Subscription plan tiers."""
 
     FREE = "free"
@@ -21,7 +21,7 @@ class TenantPlan(str, Enum):
     ENTERPRISE = "enterprise"
 
 
-class TenantStatus(str, Enum):
+class TenantStatus(StrEnum):
     """Tenant account status."""
 
     ACTIVE = "active"
@@ -34,14 +34,20 @@ class TenantQuota(BaseModel):
 
     max_schemas: int = Field(default=10, description="Maximum API schemas allowed")
     max_scenarios_per_schema: int = Field(default=50, description="Maximum scenarios per schema")
-    max_concurrent_executions: int = Field(default=1, description="Maximum concurrent test executions")
+    max_concurrent_executions: int = Field(
+        default=1, description="Maximum concurrent test executions"
+    )
     max_team_members: int = Field(default=1, description="Maximum team members")
     max_retention_days: int = Field(default=30, description="Data retention period in days")
     distributed_workers: int = Field(default=1, description="Maximum distributed workers")
     custom_plugins: bool = Field(default=False, description="Whether custom plugins are allowed")
-    ci_cd_integration: bool = Field(default=False, description="Whether CI/CD integration is allowed")
+    ci_cd_integration: bool = Field(
+        default=False, description="Whether CI/CD integration is allowed"
+    )
     sso_enabled: bool = Field(default=False, description="Whether SSO is enabled")
-    advanced_analytics: bool = Field(default=False, description="Whether advanced analytics are available")
+    advanced_analytics: bool = Field(
+        default=False, description="Whether advanced analytics are available"
+    )
 
 
 PRO_QUOTA = TenantQuota(
@@ -78,12 +84,14 @@ class Tenant(BaseModel):
     plan: TenantPlan = Field(default=TenantPlan.FREE, description="Subscription plan")
     status: TenantStatus = Field(default=TenantStatus.ACTIVE, description="Account status")
     quota: TenantQuota = Field(default_factory=TenantQuota, description="Resource quotas")
-    created_at: datetime = Field(default_factory=datetime.now, description="Account creation timestamp")
+    created_at: datetime = Field(
+        default_factory=datetime.now, description="Account creation timestamp"
+    )
     updated_at: datetime = Field(default_factory=datetime.now, description="Last update timestamp")
     settings: dict[str, Any] = Field(default_factory=dict, description="Tenant-specific settings")
 
 
-class TeamMemberRole(str, Enum):
+class TeamMemberRole(StrEnum):
     """Roles within a tenant team."""
 
     OWNER = "owner"
@@ -110,7 +118,9 @@ class TeamInvite(BaseModel):
     id: str = Field(default="", description="Unique invite identifier")
     tenant_id: str = Field(description="Tenant the invite is for")
     email: str = Field(description="Invitee email address")
-    role: TeamMemberRole = Field(default=TeamMemberRole.MEMBER, description="Role to assign on acceptance")
+    role: TeamMemberRole = Field(
+        default=TeamMemberRole.MEMBER, description="Role to assign on acceptance"
+    )
     invited_at: datetime = Field(default_factory=datetime.now, description="Invitation timestamp")
     expires_at: datetime | None = Field(default=None, description="Expiration timestamp")
     accepted: bool = Field(default=False, description="Whether the invite has been accepted")

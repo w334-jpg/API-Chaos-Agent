@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from api_chaos_agent.core.exceptions import NotFoundError
-
 from api_chaos_agent.core.deps import AnalyticsServiceDep, StoreDep
+from api_chaos_agent.core.exceptions import NotFoundError
 from api_chaos_agent.models.analytics import AnalyticsSummary, ComparisonResult, TrendPeriod
 
 router = APIRouter(prefix="/api/v2/analytics", tags=["analytics"])

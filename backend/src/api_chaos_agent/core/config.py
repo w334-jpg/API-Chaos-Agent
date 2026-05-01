@@ -54,6 +54,7 @@ class StoreConfig:
     Controls capacity limits, TTL, and backend selection.
     Use 'memory' for development and 'sqlite' for persistence.
     """
+
     max_schemas: int = _env_int("STORE_MAX_SCHEMAS", 1000)
     max_scenarios: int = _env_int("STORE_MAX_SCENARIOS", 1000)
     max_executions: int = _env_int("STORE_MAX_EXECUTIONS", 1000)
@@ -69,6 +70,7 @@ class ExecutionConfig:
 
     Controls request bursting, backoff strategy, and timing.
     """
+
     max_burst_requests: int = _env_int("EXEC_MAX_BURST_REQUESTS", 500)
     backoff_base: float = _env_float("EXEC_BACKOFF_BASE", 1.0)
     backoff_max: float = _env_float("EXEC_BACKOFF_MAX", 30.0)
@@ -83,6 +85,7 @@ class LLMConfig:
     Manages API keys, model selection, caching, and circuit breaker settings.
     Supports OpenAI, Anthropic, and local Ollama models with automatic fallback.
     """
+
     cache_dir: str = _env("LLM_CACHE_DIR", "/tmp/llm_router_cache")
     cache_ttl: int = _env_int("LLM_CACHE_TTL", 3600)
     openai_api_key: str = _env("OPENAI_API_KEY", "")
@@ -103,20 +106,25 @@ class ServerConfig:
 
     Controls host, port, debug mode, request size limits, and CORS origins.
     """
+
     host: str = _env("SERVER_HOST", "0.0.0.0")
     port: int = _env_int("SERVER_PORT", 8000)
     debug: bool = _env_bool("SERVER_DEBUG", False)
     max_request_body_size: int = _env_int("SERVER_MAX_REQUEST_BODY_SIZE", 10 * 1024 * 1024)
     max_upload_size: int = _env_int("SERVER_MAX_UPLOAD_SIZE", 10 * 1024 * 1024)
-    cors_origins: list[str] = field(default_factory=lambda: _env(
-        "SERVER_CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
-    ).split(","))
+    cors_origins: list[str] = field(
+        default_factory=lambda: _env(
+            "SERVER_CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
+        ).split(",")
+    )
 
 
-_INSECURE_DEFAULT_KEYS = frozenset({
-    "change-me-in-production-use-a-strong-key",
-    "",
-})
+_INSECURE_DEFAULT_KEYS = frozenset(
+    {
+        "change-me-in-production-use-a-strong-key",
+        "",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -126,6 +134,7 @@ class AuthConfig:
     Controls JWT settings, admin credentials, and token expiry.
     Set AUTH_ENABLED=true and provide a strong AUTH_SECRET_KEY in production.
     """
+
     enabled: bool = _env_bool("AUTH_ENABLED", False)
     secret_key: str = _env("AUTH_SECRET_KEY", "")
     algorithm: str = _env("AUTH_ALGORITHM", "HS256")
@@ -144,6 +153,7 @@ class RateLimitConfig:
 
     Controls request throttling per client IP using token-bucket algorithm.
     """
+
     enabled: bool = _env_bool("RATE_LIMIT_ENABLED", True)
     requests_per_minute: int = _env_int("RATE_LIMIT_REQUESTS_PER_MINUTE", 60)
     burst: int = _env_int("RATE_LIMIT_BURST", 10)
@@ -155,6 +165,7 @@ class LoggingConfig:
 
     Controls log level, format (text or json), and JSON indentation.
     """
+
     level: str = _env("LOG_LEVEL", "INFO")
     format: str = _env("LOG_FORMAT", "text")
     json_indent: int = _env_int("LOG_JSON_INDENT", 2)
@@ -167,6 +178,7 @@ class AppConfig:
     Access via the module-level `settings` singleton or through
     dependency injection with `get_settings()`.
     """
+
     store: StoreConfig = field(default_factory=StoreConfig)
     execution: ExecutionConfig = field(default_factory=ExecutionConfig)
     llm: LLMConfig = field(default_factory=LLMConfig)

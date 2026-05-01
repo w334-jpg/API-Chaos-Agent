@@ -10,7 +10,6 @@ Provides:
 
 from __future__ import annotations
 
-import time
 from collections import defaultdict
 from typing import Any
 
@@ -22,7 +21,7 @@ from api_chaos_agent.models.analytics import (
     SeverityTrend,
     TrendPeriod,
 )
-from api_chaos_agent.models.report import Report, Finding
+from api_chaos_agent.models.report import Finding, Report
 from api_chaos_agent.models.scenario import Severity
 
 logger = get_logger(__name__)
@@ -45,7 +44,9 @@ class AnalyticsService:
     def store_report(self, tenant_id: str, report: Report) -> None:
         self._reports.setdefault(tenant_id, []).append(report)
 
-    def get_summary(self, tenant_id: str, period: TrendPeriod = TrendPeriod.WEEKLY) -> AnalyticsSummary:
+    def get_summary(
+        self, tenant_id: str, period: TrendPeriod = TrendPeriod.WEEKLY
+    ) -> AnalyticsSummary:
         reports = self._reports.get(tenant_id, [])
         if not reports:
             return AnalyticsSummary(tenant_id=tenant_id, period=period)
@@ -58,7 +59,9 @@ class AnalyticsService:
 
         severity_dist: dict[str, int] = defaultdict(int)
         for f in all_findings:
-            severity_dist[f.severity.value if isinstance(f.severity, Severity) else str(f.severity)] += 1
+            severity_dist[
+                f.severity.value if isinstance(f.severity, Severity) else str(f.severity)
+            ] += 1
 
         top_risks = self._compute_endpoint_risks(all_findings)
         trends = self._compute_trends(reports, period)
@@ -111,9 +114,15 @@ class AnalyticsService:
         )
 
     def _compute_endpoint_risks(self, findings: list[Finding]) -> list[EndpointRiskScore]:
-        endpoint_data: dict[str, dict[str, Any]] = defaultdict(lambda: {
-            "total": 0, "critical": 0, "high": 0, "score": 0.0, "last_tested": None,
-        })
+        endpoint_data: dict[str, dict[str, Any]] = defaultdict(
+            lambda: {
+                "total": 0,
+                "critical": 0,
+                "high": 0,
+                "score": 0.0,
+                "last_tested": None,
+            }
+        )
         for f in findings:
             key = f"{f.endpoint_method}:{f.endpoint_path}"
             data = endpoint_data[key]
@@ -132,14 +141,16 @@ class AnalyticsService:
         results: list[EndpointRiskScore] = []
         for key, data in endpoint_data.items():
             method, path = key.split(":", 1)
-            results.append(EndpointRiskScore(
-                endpoint_path=path,
-                endpoint_method=method,
-                risk_score=min(data["score"], 100.0),
-                total_findings=data["total"],
-                critical_count=data["critical"],
-                high_count=data["high"],
-            ))
+            results.append(
+                EndpointRiskScore(
+                    endpoint_path=path,
+                    endpoint_method=method,
+                    risk_score=min(data["score"], 100.0),
+                    total_findings=data["total"],
+                    critical_count=data["critical"],
+                    high_count=data["high"],
+                )
+            )
         return sorted(results, key=lambda r: r.risk_score, reverse=True)
 
     def _compute_trends(self, reports: list[Report], period: TrendPeriod) -> list[SeverityTrend]:
@@ -147,23 +158,31 @@ class AnalyticsService:
             return []
         grouped: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
         for r in reports:
-            date_key = r.created_at.strftime("%Y-%m-%d" if period == TrendPeriod.DAILY else "%Y-W%W" if period == TrendPeriod.WEEKLY else "%Y-%m")
+            date_key = r.created_at.strftime(
+                "%Y-%m-%d"
+                if period == TrendPeriod.DAILY
+                else "%Y-W%W"
+                if period == TrendPeriod.WEEKLY
+                else "%Y-%m"
+            )
             for f in r.findings:
                 sev = f.severity.value if isinstance(f.severity, Severity) else str(f.severity)
                 grouped[date_key][sev] += 1
         trends: list[SeverityTrend] = []
         for date_key in sorted(grouped.keys()):
             counts = grouped[date_key]
-            trends.append(SeverityTrend(
-                period=period.value,
-                date=date_key,
-                critical=counts.get("critical", 0),
-                high=counts.get("high", 0),
-                medium=counts.get("medium", 0),
-                low=counts.get("low", 0),
-                info=counts.get("info", 0),
-                total=sum(counts.values()),
-            ))
+            trends.append(
+                SeverityTrend(
+                    period=period.value,
+                    date=date_key,
+                    critical=counts.get("critical", 0),
+                    high=counts.get("high", 0),
+                    medium=counts.get("medium", 0),
+                    low=counts.get("low", 0),
+                    info=counts.get("info", 0),
+                    total=sum(counts.values()),
+                )
+            )
         return trends
 
     def _compute_pass_rate(self, reports: list[Report]) -> float:
@@ -210,7 +229,9 @@ class AnalyticsService:
         baseline_sevs: dict[str, str] = {}
         for f in baseline:
             key = self._finding_key(f)
-            baseline_sevs[key] = f.severity.value if isinstance(f.severity, Severity) else str(f.severity)
+            baseline_sevs[key] = (
+                f.severity.value if isinstance(f.severity, Severity) else str(f.severity)
+            )
         for f in comparison:
             key = self._finding_key(f)
             comp_sev = f.severity.value if isinstance(f.severity, Severity) else str(f.severity)

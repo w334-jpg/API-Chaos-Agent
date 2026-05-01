@@ -11,10 +11,10 @@ from __future__ import annotations
 import csv
 import io
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from api_chaos_agent.models.report import Finding, Report, ReportSummary, ScenarioResult, TestResult
+from api_chaos_agent.models.report import Finding, Report, ScenarioResult
 
 
 class ReportExporter:
@@ -22,11 +22,19 @@ class ReportExporter:
 
     def export_html(self, report: Report) -> str:
         title = "API Chaos Test Report"
-        generated = report.created_at.isoformat() if report.created_at else datetime.now(timezone.utc).isoformat()
+        generated = (
+            report.created_at.isoformat()
+            if report.created_at
+            else datetime.now(UTC).isoformat()
+        )
 
         vuln_rows = ""
         for v in report.findings:
-            severity_class = f"severity-{v.severity.value}" if hasattr(v.severity, "value") else "severity-medium"
+            severity_class = (
+                f"severity-{v.severity.value}"
+                if hasattr(v.severity, "value")
+                else "severity-medium"
+            )
             vuln_rows += f"""
             <tr class="{severity_class}">
                 <td>{_esc(v.scenario_id)}</td>
@@ -104,8 +112,8 @@ footer {{ text-align: center; color: var(--gray); font-size: 0.875rem; margin-to
   <div class="card"><h3>Total Scenarios</h3><div class="value primary">{total_scenarios}</div></div>
   <div class="card"><h3>Passed</h3><div class="value success">{completed}</div></div>
   <div class="card"><h3>Failed</h3><div class="value danger">{failed}</div></div>
-  <div class="card"><h3>Pass Rate</h3><div class="value {'success' if pass_rate >= 80 else 'warning' if pass_rate >= 50 else 'danger'}">{pass_rate:.1f}%</div></div>
-  <div class="card"><h3>Vulnerabilities</h3><div class="value {'danger' if vuln_count > 0 else 'success'}">{vuln_count}</div></div>
+  <div class="card"><h3>Pass Rate</h3><div class="value {"success" if pass_rate >= 80 else "warning" if pass_rate >= 50 else "danger"}">{pass_rate:.1f}%</div></div>
+  <div class="card"><h3>Vulnerabilities</h3><div class="value {"danger" if vuln_count > 0 else "success"}">{vuln_count}</div></div>
 </div>
 
 <section>
@@ -113,11 +121,11 @@ footer {{ text-align: center; color: var(--gray); font-size: 0.875rem; margin-to
 <table>
 <tr><th>Critical</th><th>High</th><th>Medium</th><th>Low</th><th>Info</th></tr>
 <tr>
-  <td><span class="badge severity-critical">{severity_summary.get('critical', 0)}</span></td>
-  <td><span class="badge severity-high">{severity_summary.get('high', 0)}</span></td>
-  <td><span class="badge severity-medium">{severity_summary.get('medium', 0)}</span></td>
-  <td><span class="badge severity-low">{severity_summary.get('low', 0)}</span></td>
-  <td><span class="badge">{severity_summary.get('info', 0)}</span></td>
+  <td><span class="badge severity-critical">{severity_summary.get("critical", 0)}</span></td>
+  <td><span class="badge severity-high">{severity_summary.get("high", 0)}</span></td>
+  <td><span class="badge severity-medium">{severity_summary.get("medium", 0)}</span></td>
+  <td><span class="badge severity-low">{severity_summary.get("low", 0)}</span></td>
+  <td><span class="badge">{severity_summary.get("info", 0)}</span></td>
 </tr>
 </table>
 </section>
@@ -147,11 +155,20 @@ footer {{ text-align: center; color: var(--gray); font-size: 0.875rem; margin-to
     def export_csv(self, report: Report) -> str:
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow([
-            "scenario_id", "scenario_type", "status", "duration_ms",
-            "status_code", "error_message", "is_vulnerability",
-            "severity", "details", "recommendation",
-        ])
+        writer.writerow(
+            [
+                "scenario_id",
+                "scenario_type",
+                "status",
+                "duration_ms",
+                "status_code",
+                "error_message",
+                "is_vulnerability",
+                "severity",
+                "details",
+                "recommendation",
+            ]
+        )
 
         vuln_map: dict[str, Finding] = {}
         for v in report.findings:
@@ -160,18 +177,20 @@ footer {{ text-align: center; color: var(--gray); font-size: 0.875rem; margin-to
         for s in self._get_scenario_results(report):
             vuln = vuln_map.get(s.scenario_id)
             status_val = str(s.status.value) if hasattr(s.status, "value") else str(s.status)
-            writer.writerow([
-                s.scenario_id,
-                s.scenario_type,
-                status_val,
-                f"{s.response.elapsed_ms:.0f}" if s.response.elapsed_ms else "",
-                s.response.status_code or "",
-                s.response.error or s.details or "",
-                "yes" if vuln else "no",
-                str(vuln.severity) if vuln else "",
-                vuln.details if vuln else "",
-                vuln.recommendation if vuln else "",
-            ])
+            writer.writerow(
+                [
+                    s.scenario_id,
+                    s.scenario_type,
+                    status_val,
+                    f"{s.response.elapsed_ms:.0f}" if s.response.elapsed_ms else "",
+                    s.response.status_code or "",
+                    s.response.error or s.details or "",
+                    "yes" if vuln else "no",
+                    str(vuln.severity) if vuln else "",
+                    vuln.details if vuln else "",
+                    vuln.recommendation if vuln else "",
+                ]
+            )
 
         return output.getvalue()
 

@@ -97,7 +97,7 @@ class TestReportExporterJSON:
         json_str = exporter.export_json(sample_report)
         data = json.loads(json_str)
         assert len(data["findings"]) == 2
-        assert data["findings"][0]["severity"] == "Severity.CRITICAL"
+        assert data["findings"][0]["severity"] == "critical"
 
     def test_export_json_valid(self, sample_report):
         exporter = ReportExporter()

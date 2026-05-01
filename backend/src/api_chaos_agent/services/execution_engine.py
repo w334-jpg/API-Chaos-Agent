@@ -23,7 +23,6 @@ from typing import Any
 import httpx
 
 from api_chaos_agent.core.config import settings
-from api_chaos_agent.core.exceptions import ExecutionConnectionError, ExecutionError, ExecutionTimeoutError
 from api_chaos_agent.core.logging import get_logger
 from api_chaos_agent.models.report import (
     ExecutionConfig,
@@ -32,8 +31,8 @@ from api_chaos_agent.models.report import (
     ScenarioResult,
     TestResult,
 )
-from api_chaos_agent.models.scenario import ChaosScenario, ChaosScenarioType, Severity
-from api_chaos_agent.models.schema import Endpoint, HttpMethod, FieldType
+from api_chaos_agent.models.scenario import ChaosScenario, ChaosScenarioType
+from api_chaos_agent.models.schema import Endpoint, FieldType, HttpMethod
 
 
 class ExecutionEngine:
@@ -142,7 +141,9 @@ class ExecutionEngine:
         except httpx.ConnectError as exc:
             sr.status = ExecutionStatus.FAILED
             sr.response = ResponseData(error=str(exc))
-            self._logger.warning("execution_connection_error", scenario=scenario.name, error=str(exc))
+            self._logger.warning(
+                "execution_connection_error", scenario=scenario.name, error=str(exc)
+            )
         except Exception as exc:
             sr.status = ExecutionStatus.FAILED
             sr.response = ResponseData(error=str(exc))
@@ -312,7 +313,7 @@ class ExecutionEngine:
 
     def _calculate_backoff(self, attempt: int) -> float:
         delay = min(
-            self._exec_cfg.backoff_base * (2 ** attempt),
+            self._exec_cfg.backoff_base * (2**attempt),
             self._exec_cfg.backoff_max,
         )
         jitter = delay * self._exec_cfg.jitter_factor * random.random()

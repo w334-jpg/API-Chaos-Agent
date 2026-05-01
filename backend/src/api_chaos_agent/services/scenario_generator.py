@@ -8,15 +8,14 @@ from __future__ import annotations
 
 import json
 import uuid
-from typing import Any
 
 from api_chaos_agent.core.logging import get_logger
-from api_chaos_agent.models.schema import APISpec, Endpoint, HttpMethod, FieldType, FieldConstraint
 from api_chaos_agent.models.scenario import (
     ChaosScenario,
     ChaosScenarioType,
     Severity,
 )
+from api_chaos_agent.models.schema import APISpec, Endpoint, FieldConstraint, FieldType, HttpMethod
 from api_chaos_agent.services.llm_router import LLMRouter, TaskComplexity
 
 logger = get_logger(__name__)
@@ -49,7 +48,12 @@ class ScenarioGenerator:
             llm_scenarios = await self._generate_llm_scenarios(endpoint)
             scenarios.extend(llm_scenarios)
         except Exception as exc:
-            logger.warning("LLM scenario generation failed for %s %s: %s", endpoint.method.value, endpoint.path, exc)
+            logger.warning(
+                "LLM scenario generation failed for %s %s: %s",
+                endpoint.method.value,
+                endpoint.path,
+                exc,
+            )
 
         return scenarios
 
@@ -136,96 +140,146 @@ class ScenarioGenerator:
 
         if endpoint.parameters:
             for param in endpoint.parameters:
-                scenarios.append(ChaosScenario(
-                    name=f"Param Tampering - {endpoint.method.value} {endpoint.path} ({param.name})",
-                    scenario_type=ChaosScenarioType.REQUEST_TAMPERING,
-                    endpoint=endpoint,
-                    description=f"Tamper parameter '{param.name}' in {endpoint.method.value} {endpoint.path}",
-                    config={"field_path": param.name, "tamper_type": "invalid_value", "tamper_value": None},
-                    expected_behavior="API should validate and reject invalid parameter values",
-                    severity=Severity.HIGH,
-                ))
+                scenarios.append(
+                    ChaosScenario(
+                        name=f"Param Tampering - {endpoint.method.value} {endpoint.path} ({param.name})",
+                        scenario_type=ChaosScenarioType.REQUEST_TAMPERING,
+                        endpoint=endpoint,
+                        description=f"Tamper parameter '{param.name}' in {endpoint.method.value} {endpoint.path}",
+                        config={
+                            "field_path": param.name,
+                            "tamper_type": "invalid_value",
+                            "tamper_value": None,
+                        },
+                        expected_behavior="API should validate and reject invalid parameter values",
+                        severity=Severity.HIGH,
+                    )
+                )
 
         if not scenarios:
-            scenarios.append(ChaosScenario(
-                name=f"Header Injection - {endpoint.method.value} {endpoint.path}",
-                scenario_type=ChaosScenarioType.REQUEST_TAMPERING,
-                endpoint=endpoint,
-                description=f"Inject malicious headers into {endpoint.method.value} {endpoint.path}",
-                config={"field_path": "X-Custom-Header", "tamper_type": "inject", "tamper_value": "<script>alert(1)</script>"},
-                expected_behavior="API should sanitize or reject malicious header values",
-                severity=Severity.HIGH,
-            ))
+            scenarios.append(
+                ChaosScenario(
+                    name=f"Header Injection - {endpoint.method.value} {endpoint.path}",
+                    scenario_type=ChaosScenarioType.REQUEST_TAMPERING,
+                    endpoint=endpoint,
+                    description=f"Inject malicious headers into {endpoint.method.value} {endpoint.path}",
+                    config={
+                        "field_path": "X-Custom-Header",
+                        "tamper_type": "inject",
+                        "tamper_value": "<script>alert(1)</script>",
+                    },
+                    expected_behavior="API should sanitize or reject malicious header values",
+                    severity=Severity.HIGH,
+                )
+            )
 
         return scenarios
 
-    def _field_tampering_scenarios(self, endpoint: Endpoint, field: FieldConstraint) -> list[ChaosScenario]:
+    def _field_tampering_scenarios(
+        self, endpoint: Endpoint, field: FieldConstraint
+    ) -> list[ChaosScenario]:
         scenarios: list[ChaosScenario] = []
 
-        scenarios.append(ChaosScenario(
-            name=f"Type Mismatch - {endpoint.method.value} {endpoint.path} ({field.field_name})",
-            scenario_type=ChaosScenarioType.REQUEST_TAMPERING,
-            endpoint=endpoint,
-            description=f"Send wrong type for field '{field.field_name}' in {endpoint.method.value} {endpoint.path}",
-            config={"field_path": field.field_name, "tamper_type": "type_mismatch", "tamper_value": None},
-            expected_behavior="API should validate input types and reject type mismatches",
-            severity=Severity.HIGH,
-        ))
+        scenarios.append(
+            ChaosScenario(
+                name=f"Type Mismatch - {endpoint.method.value} {endpoint.path} ({field.field_name})",
+                scenario_type=ChaosScenarioType.REQUEST_TAMPERING,
+                endpoint=endpoint,
+                description=f"Send wrong type for field '{field.field_name}' in {endpoint.method.value} {endpoint.path}",
+                config={
+                    "field_path": field.field_name,
+                    "tamper_type": "type_mismatch",
+                    "tamper_value": None,
+                },
+                expected_behavior="API should validate input types and reject type mismatches",
+                severity=Severity.HIGH,
+            )
+        )
 
         if field.field_type == FieldType.STRING:
-            scenarios.append(ChaosScenario(
-                name=f"Overflow - {endpoint.method.value} {endpoint.path} ({field.field_name})",
-                scenario_type=ChaosScenarioType.REQUEST_TAMPERING,
-                endpoint=endpoint,
-                description=f"Send oversized value for field '{field.field_name}'",
-                config={"field_path": field.field_name, "tamper_type": "overflow", "tamper_value": "A" * 10000},
-                expected_behavior="API should enforce length limits and reject oversized inputs",
-                severity=Severity.HIGH,
-            ))
+            scenarios.append(
+                ChaosScenario(
+                    name=f"Overflow - {endpoint.method.value} {endpoint.path} ({field.field_name})",
+                    scenario_type=ChaosScenarioType.REQUEST_TAMPERING,
+                    endpoint=endpoint,
+                    description=f"Send oversized value for field '{field.field_name}'",
+                    config={
+                        "field_path": field.field_name,
+                        "tamper_type": "overflow",
+                        "tamper_value": "A" * 10000,
+                    },
+                    expected_behavior="API should enforce length limits and reject oversized inputs",
+                    severity=Severity.HIGH,
+                )
+            )
 
         if field.field_type in (FieldType.INTEGER, FieldType.NUMBER):
-            scenarios.append(ChaosScenario(
-                name=f"Boundary Value - {endpoint.method.value} {endpoint.path} ({field.field_name})",
-                scenario_type=ChaosScenarioType.REQUEST_TAMPERING,
-                endpoint=endpoint,
-                description=f"Send boundary value for field '{field.field_name}'",
-                config={"field_path": field.field_name, "tamper_type": "boundary", "tamper_value": -999999999},
-                expected_behavior="API should enforce range limits and reject out-of-bound values",
-                severity=Severity.MEDIUM,
-            ))
+            scenarios.append(
+                ChaosScenario(
+                    name=f"Boundary Value - {endpoint.method.value} {endpoint.path} ({field.field_name})",
+                    scenario_type=ChaosScenarioType.REQUEST_TAMPERING,
+                    endpoint=endpoint,
+                    description=f"Send boundary value for field '{field.field_name}'",
+                    config={
+                        "field_path": field.field_name,
+                        "tamper_type": "boundary",
+                        "tamper_value": -999999999,
+                    },
+                    expected_behavior="API should enforce range limits and reject out-of-bound values",
+                    severity=Severity.MEDIUM,
+                )
+            )
 
         if field.enum_values:
-            scenarios.append(ChaosScenario(
-                name=f"Invalid Enum - {endpoint.method.value} {endpoint.path} ({field.field_name})",
-                scenario_type=ChaosScenarioType.REQUEST_TAMPERING,
-                endpoint=endpoint,
-                description=f"Send invalid enum value for field '{field.field_name}'",
-                config={"field_path": field.field_name, "tamper_type": "enum_violation", "tamper_value": "INVALID_ENUM_VALUE"},
-                expected_behavior="API should reject values not in the allowed enum list",
-                severity=Severity.HIGH,
-            ))
+            scenarios.append(
+                ChaosScenario(
+                    name=f"Invalid Enum - {endpoint.method.value} {endpoint.path} ({field.field_name})",
+                    scenario_type=ChaosScenarioType.REQUEST_TAMPERING,
+                    endpoint=endpoint,
+                    description=f"Send invalid enum value for field '{field.field_name}'",
+                    config={
+                        "field_path": field.field_name,
+                        "tamper_type": "enum_violation",
+                        "tamper_value": "INVALID_ENUM_VALUE",
+                    },
+                    expected_behavior="API should reject values not in the allowed enum list",
+                    severity=Severity.HIGH,
+                )
+            )
 
         if field.required:
-            scenarios.append(ChaosScenario(
-                name=f"Missing Required - {endpoint.method.value} {endpoint.path} ({field.field_name})",
-                scenario_type=ChaosScenarioType.REQUEST_TAMPERING,
-                endpoint=endpoint,
-                description=f"Omit required field '{field.field_name}' from request",
-                config={"field_path": field.field_name, "tamper_type": "missing", "tamper_value": None},
-                expected_behavior="API should reject requests missing required fields",
-                severity=Severity.CRITICAL,
-            ))
+            scenarios.append(
+                ChaosScenario(
+                    name=f"Missing Required - {endpoint.method.value} {endpoint.path} ({field.field_name})",
+                    scenario_type=ChaosScenarioType.REQUEST_TAMPERING,
+                    endpoint=endpoint,
+                    description=f"Omit required field '{field.field_name}' from request",
+                    config={
+                        "field_path": field.field_name,
+                        "tamper_type": "missing",
+                        "tamper_value": None,
+                    },
+                    expected_behavior="API should reject requests missing required fields",
+                    severity=Severity.CRITICAL,
+                )
+            )
 
         if field.format in ("email", "uri", "date-time"):
-            scenarios.append(ChaosScenario(
-                name=f"Invalid Format - {endpoint.method.value} {endpoint.path} ({field.field_name})",
-                scenario_type=ChaosScenarioType.REQUEST_TAMPERING,
-                endpoint=endpoint,
-                description=f"Send malformed {field.format} for field '{field.field_name}'",
-                config={"field_path": field.field_name, "tamper_type": "format_violation", "tamper_value": "not-a-valid-format"},
-                expected_behavior=f"API should reject malformed {field.format} values",
-                severity=Severity.HIGH,
-            ))
+            scenarios.append(
+                ChaosScenario(
+                    name=f"Invalid Format - {endpoint.method.value} {endpoint.path} ({field.field_name})",
+                    scenario_type=ChaosScenarioType.REQUEST_TAMPERING,
+                    endpoint=endpoint,
+                    description=f"Send malformed {field.format} for field '{field.field_name}'",
+                    config={
+                        "field_path": field.field_name,
+                        "tamper_type": "format_violation",
+                        "tamper_value": "not-a-valid-format",
+                    },
+                    expected_behavior=f"API should reject malformed {field.format} values",
+                    severity=Severity.HIGH,
+                )
+            )
 
         return scenarios
 
@@ -292,7 +346,9 @@ class ScenarioGenerator:
             field_names = [f.field_name for f in endpoint.request_body.fields]
             parts.append(f"Request fields: {', '.join(field_names)}")
 
-        parts.append("Return scenarios as JSON array with fields: name, type (latency|error_status|request_tampering|rate_limit), config, severity (critical|high|medium|low|info)")
+        parts.append(
+            "Return scenarios as JSON array with fields: name, type (latency|error_status|request_tampering|rate_limit), config, severity (critical|high|medium|low|info)"
+        )
         return " | ".join(parts)
 
     def _parse_llm_response(self, response: str, endpoint: Endpoint) -> list[ChaosScenario]:
@@ -325,7 +381,9 @@ class ScenarioGenerator:
                     severity = Severity.MEDIUM
 
                 scenario = ChaosScenario(
-                    name=item.get("name", f"LLM Generated - {endpoint.method.value} {endpoint.path}"),
+                    name=item.get(
+                        "name", f"LLM Generated - {endpoint.method.value} {endpoint.path}"
+                    ),
                     scenario_type=scenario_type,
                     endpoint=endpoint,
                     description=item.get("description", ""),

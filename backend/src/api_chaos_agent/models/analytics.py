@@ -7,15 +7,13 @@ endpoint risk scores, and report comparisons.
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
-from api_chaos_agent.models.scenario import Severity
 
-
-class TrendPeriod(str, Enum):
+class TrendPeriod(StrEnum):
     """Time period for trend analysis."""
 
     DAILY = "daily"
@@ -53,12 +51,20 @@ class ComparisonResult(BaseModel):
 
     baseline_report_id: str = Field(description="Baseline report identifier")
     comparison_report_id: str = Field(description="Comparison report identifier")
-    new_findings: int = Field(default=0, description="Findings present in comparison but not baseline")
+    new_findings: int = Field(
+        default=0, description="Findings present in comparison but not baseline"
+    )
     resolved_findings: int = Field(default=0, description="Findings resolved since baseline")
     persistent_findings: int = Field(default=0, description="Findings present in both reports")
-    severity_changes: dict[str, dict[str, int]] = Field(default_factory=dict, description="Severity count changes between reports")
-    new_vulnerability_details: list[dict[str, Any]] = Field(default_factory=list, description="Details of new vulnerabilities")
-    resolved_vulnerability_details: list[dict[str, Any]] = Field(default_factory=list, description="Details of resolved vulnerabilities")
+    severity_changes: dict[str, dict[str, int]] = Field(
+        default_factory=dict, description="Severity count changes between reports"
+    )
+    new_vulnerability_details: list[dict[str, Any]] = Field(
+        default_factory=list, description="Details of new vulnerabilities"
+    )
+    resolved_vulnerability_details: list[dict[str, Any]] = Field(
+        default_factory=list, description="Details of resolved vulnerabilities"
+    )
     risk_score_delta: float = Field(default=0.0, description="Change in overall risk score")
     improved: bool = Field(default=True, description="Whether security posture improved")
 
@@ -71,8 +77,18 @@ class AnalyticsSummary(BaseModel):
     total_executions: int = Field(default=0, description="Total test executions in the period")
     total_scenarios_run: int = Field(default=0, description="Total scenarios executed")
     total_vulnerabilities: int = Field(default=0, description="Total vulnerabilities found")
-    severity_distribution: dict[str, int] = Field(default_factory=dict, description="Vulnerability count by severity")
-    top_risk_endpoints: list[EndpointRiskScore] = Field(default_factory=list, description="Endpoints ranked by risk score")
-    trends: list[SeverityTrend] = Field(default_factory=list, description="Severity trends over time")
-    pass_rate: float = Field(default=0.0, description="Percentage of scenarios with no vulnerability")
-    avg_execution_time_ms: float = Field(default=0.0, description="Average execution time in milliseconds")
+    severity_distribution: dict[str, int] = Field(
+        default_factory=dict, description="Vulnerability count by severity"
+    )
+    top_risk_endpoints: list[EndpointRiskScore] = Field(
+        default_factory=list, description="Endpoints ranked by risk score"
+    )
+    trends: list[SeverityTrend] = Field(
+        default_factory=list, description="Severity trends over time"
+    )
+    pass_rate: float = Field(
+        default=0.0, description="Percentage of scenarios with no vulnerability"
+    )
+    avg_execution_time_ms: float = Field(
+        default=0.0, description="Average execution time in milliseconds"
+    )

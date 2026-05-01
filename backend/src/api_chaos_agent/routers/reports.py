@@ -7,7 +7,7 @@ import html as html_module
 from fastapi import APIRouter
 
 from api_chaos_agent.core.deps import StoreDep
-from api_chaos_agent.core.exceptions import ExecutionError, NotFoundError, RequestError, SchemaError
+from api_chaos_agent.core.exceptions import NotFoundError, RequestError
 from api_chaos_agent.core.security import CurrentUser
 from api_chaos_agent.models.report import Report
 from api_chaos_agent.services.report_generator import ReportGenerator
@@ -33,7 +33,9 @@ async def generate_report(
         raise RequestError(detail="execution_id too long")
 
     if format not in _ALLOWED_FORMATS:
-        raise RequestError(detail=f"Invalid format '{format}'. Allowed: {', '.join(sorted(_ALLOWED_FORMATS))}")
+        raise RequestError(
+            detail=f"Invalid format '{format}'. Allowed: {', '.join(sorted(_ALLOWED_FORMATS))}"
+        )
 
     test_result = await store.get_execution(execution_id)
     if test_result is None:
@@ -92,7 +94,7 @@ def _render_html_report(report: Report) -> str:
             <td>{_esc(f.scenario_name)}</td>
             <td>{_esc(f.scenario_type)}</td>
             <td>{_esc(f.severity.value)}</td>
-            <td>{'Yes' if f.vulnerability_found else 'No'}</td>
+            <td>{"Yes" if f.vulnerability_found else "No"}</td>
             <td>{_esc(f.details[:100])}</td>
         </tr>"""
 

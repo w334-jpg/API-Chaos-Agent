@@ -38,8 +38,8 @@ from api_chaos_agent.core.exceptions import (
     ConfigurationError,
     ExecutionConnectionError,
     ExecutionTimeoutError,
-    LLMUnavailableError,
     LicenseError,
+    LLMUnavailableError,
     NotFoundError,
     RequestError,
     SchemaError,
@@ -97,8 +97,7 @@ async def _chaos_agent_error_handler(request: Request, exc: ChaosAgentError) -> 
 async def _validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     errors = exc.errors()
     detail = "; ".join(
-        f"{'.'.join(str(l) for l in e.get('loc', []))}: {e.get('msg', '')}"
-        for e in errors
+        f"{'.'.join(str(loc) for loc in e.get('loc', []))}: {e.get('msg', '')}" for e in errors
     )
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -106,11 +105,12 @@ async def _validation_error_handler(request: Request, exc: RequestValidationErro
     )
 
 
-async def _pydantic_validation_error_handler(request: Request, exc: ValidationError) -> JSONResponse:
+async def _pydantic_validation_error_handler(
+    request: Request, exc: ValidationError
+) -> JSONResponse:
     errors = exc.errors()
     detail = "; ".join(
-        f"{'.'.join(str(l) for l in e.get('loc', []))}: {e.get('msg', '')}"
-        for e in errors
+        f"{'.'.join(str(loc) for loc in e.get('loc', []))}: {e.get('msg', '')}" for e in errors
     )
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

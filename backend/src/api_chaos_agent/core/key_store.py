@@ -17,7 +17,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Any
 
 from api_chaos_agent.core.logging import get_logger
 
@@ -26,6 +25,7 @@ logger = get_logger(__name__)
 _KEYRING_AVAILABLE = False
 try:
     import keyring
+
     _KEYRING_AVAILABLE = True
 except ImportError:
     pass
@@ -33,6 +33,7 @@ except ImportError:
 _FERNET_AVAILABLE = False
 try:
     from cryptography.fernet import Fernet
+
     _FERNET_AVAILABLE = True
 except ImportError:
     pass
@@ -60,7 +61,10 @@ class SecureKeyStore:
         if not self._use_keyring:
             self._fallback_dir.mkdir(parents=True, exist_ok=True)
             if self._use_fernet:
-                logger.info("keyring not available, using Fernet-encrypted file store at %s", self._fallback_dir)
+                logger.info(
+                    "keyring not available, using Fernet-encrypted file store at %s",
+                    self._fallback_dir,
+                )
             else:
                 logger.warning(
                     "keyring and cryptography not available, using obfuscated file store at %s — "
@@ -127,7 +131,9 @@ class SecureKeyStore:
     def _get_encryption_key(self) -> bytes:
         machine_id = os.environ.get("API_CHAOS_AGENT_MACHINE_ID", "")
         if not machine_id:
-            machine_id = str(os.getuid()) if hasattr(os, "getuid") else os.environ.get("USER", "default")
+            machine_id = (
+                str(os.getuid()) if hasattr(os, "getuid") else os.environ.get("USER", "default")
+            )
         return _derive_fernet_key(f"{_SERVICE_NAME}:{machine_id}".encode())
 
     def _get_from_file(self, key: str) -> str | None:
@@ -194,7 +200,9 @@ class SecureKeyStore:
     def _get_obfuscation_key(self) -> bytes:
         machine_id = os.environ.get("API_CHAOS_AGENT_MACHINE_ID", "")
         if not machine_id:
-            machine_id = str(os.getuid()) if hasattr(os, "getuid") else os.environ.get("USER", "default")
+            machine_id = (
+                str(os.getuid()) if hasattr(os, "getuid") else os.environ.get("USER", "default")
+            )
         return hashlib.sha256(f"{_SERVICE_NAME}:{machine_id}".encode()).digest()
 
 

@@ -8,16 +8,14 @@ Implements the StoreProtocol for interface consistency.
 from __future__ import annotations
 
 import asyncio
-import json
 import sqlite3
 import uuid
 from pathlib import Path
-from typing import Any
 
 from api_chaos_agent.core.config import settings
-from api_chaos_agent.models.schema import APISpec
+from api_chaos_agent.models.report import Report, TestResult
 from api_chaos_agent.models.scenario import ChaosScenario
-from api_chaos_agent.models.report import TestResult, Report
+from api_chaos_agent.models.schema import APISpec
 
 
 class SQLiteStore:
@@ -72,6 +70,7 @@ class SQLiteStore:
 
     def _insert(self, table: str, item_id: str, data: str) -> None:
         import time
+
         self._conn.execute(
             f"INSERT OR REPLACE INTO {table} (id, data, created_at) VALUES (?, ?, ?)",
             (item_id, data, time.time()),

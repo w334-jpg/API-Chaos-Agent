@@ -8,19 +8,19 @@ so that other subsystems can react to plugin lifecycle changes
 from __future__ import annotations
 
 import time
-import uuid
-from enum import Enum
-from typing import Any, Callable
+from collections.abc import Callable
+from enum import StrEnum
+from typing import Any
 
 from api_chaos_agent.core.logging import get_logger
-from api_chaos_agent.models.plugin import FaultPlugin, FaultPluginManifest, PluginStatus
+from api_chaos_agent.models.plugin import FaultPlugin, PluginStatus
 from api_chaos_agent.models.scenario import ChaosScenario
-from api_chaos_agent.services.plugin_framework import FaultPluginInterface, PluginManager
+from api_chaos_agent.services.plugin_framework import PluginManager
 
 logger = get_logger(__name__)
 
 
-class PluginEventType(str, Enum):
+class PluginEventType(StrEnum):
     LOADED = "loaded"
     ENABLED = "enabled"
     DISABLED = "disabled"
@@ -49,7 +49,9 @@ class PluginRegistry:
     def unsubscribe(self, handler: PluginEventHandler) -> None:
         self._subscribers = [h for h in self._subscribers if h is not handler]
 
-    def _emit(self, event_type: PluginEventType, plugin_name: str, payload: dict[str, Any] | None = None) -> None:
+    def _emit(
+        self, event_type: PluginEventType, plugin_name: str, payload: dict[str, Any] | None = None
+    ) -> None:
         entry = {
             "event": event_type.value,
             "plugin": plugin_name,
@@ -66,13 +68,19 @@ class PluginRegistry:
     def load_from_directory(self, directory: str) -> list[FaultPlugin]:
         loaded = self._manager.load_from_directory(directory)
         for fp in loaded:
-            self._emit(PluginEventType.LOADED, fp.manifest.name, {"source": "directory", "path": directory})
+            self._emit(
+                PluginEventType.LOADED, fp.manifest.name, {"source": "directory", "path": directory}
+            )
         return loaded
 
     def load_from_entrypoint(self, module_path: str) -> FaultPlugin | None:
         fp = self._manager.load_from_entrypoint(module_path)
         if fp:
-            self._emit(PluginEventType.LOADED, fp.manifest.name, {"source": "entrypoint", "path": module_path})
+            self._emit(
+                PluginEventType.LOADED,
+                fp.manifest.name,
+                {"source": "entrypoint", "path": module_path},
+            )
         return fp
 
     def enable(self, name: str) -> bool:
@@ -93,7 +101,9 @@ class PluginRegistry:
     def list_plugins(self, status: PluginStatus | None = None) -> list[FaultPlugin]:
         return self._manager.list_plugins(status)
 
-    async def execute(self, plugin_name: str, scenario: ChaosScenario, config: dict[str, Any]) -> Any:
+    async def execute(
+        self, plugin_name: str, scenario: ChaosScenario, config: dict[str, Any]
+    ) -> Any:
         return await self._manager.execute(plugin_name, scenario, config)
 
     def get_event_log(self, limit: int = 100) -> list[dict[str, Any]]:

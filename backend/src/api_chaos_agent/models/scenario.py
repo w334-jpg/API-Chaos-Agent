@@ -6,7 +6,7 @@ scenario types, severity levels, and type-specific configuration models.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from api_chaos_agent.models.schema import Endpoint
 
 
-class ChaosScenarioType(str, Enum):
+class ChaosScenarioType(StrEnum):
     """Types of chaos scenarios that can be injected."""
 
     LATENCY = "latency"
@@ -28,7 +28,7 @@ class ChaosScenarioType(str, Enum):
     CUSTOM_PLUGIN = "custom_plugin"
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     """Severity levels for chaos test findings."""
 
     CRITICAL = "critical"
@@ -56,7 +56,9 @@ class TamperingConfig(BaseModel):
     """Configuration for request tampering scenarios."""
 
     field_path: str = Field(description="JSON path of the field to tamper")
-    tamper_type: str = Field(description="Tampering method: remove, replace, overflow, type_mismatch, inject")
+    tamper_type: str = Field(
+        description="Tampering method: remove, replace, overflow, type_mismatch, inject"
+    )
     tamper_value: Any = Field(default=None, description="Value to use for replacement tampering")
 
 
@@ -75,6 +77,10 @@ class ChaosScenario(BaseModel):
     scenario_type: ChaosScenarioType = Field(description="Type of chaos scenario")
     endpoint: Endpoint = Field(description="Target API endpoint")
     description: str = Field(default="", description="Detailed scenario description")
-    config: dict[str, Any] = Field(default_factory=dict, description="Type-specific scenario configuration")
+    config: dict[str, Any] = Field(
+        default_factory=dict, description="Type-specific scenario configuration"
+    )
     expected_behavior: str = Field(default="", description="Expected API behavior under chaos")
-    severity: Severity = Field(default=Severity.MEDIUM, description="Severity level of the scenario")
+    severity: Severity = Field(
+        default=Severity.MEDIUM, description="Severity level of the scenario"
+    )

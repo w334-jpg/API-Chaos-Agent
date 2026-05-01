@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import re
-from typing import Annotated
 
 from fastapi import APIRouter, File, UploadFile
 
 from api_chaos_agent.core.config import settings
 from api_chaos_agent.core.deps import StoreDep
-from api_chaos_agent.core.exceptions import NotFoundError, RequestError, SchemaError, SchemaParseError
+from api_chaos_agent.core.exceptions import (
+    NotFoundError,
+    RequestError,
+    SchemaError,
+    SchemaParseError,
+)
 from api_chaos_agent.core.security import CurrentUser
 from api_chaos_agent.models.schema import APISpec
 from api_chaos_agent.services.schema_parser import SchemaParser
@@ -57,7 +61,9 @@ async def upload_schema(
 
     safe_name = _sanitize_filename(file.filename)
 
-    import tempfile, os
+    import os
+    import tempfile
+
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=_suffix_for(safe_name))
     try:
         tmp.write(content)

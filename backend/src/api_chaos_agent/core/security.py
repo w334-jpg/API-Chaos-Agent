@@ -21,10 +21,10 @@ _bearer = HTTPBearer(auto_error=False)
 
 
 def create_access_token(subject: str, expires_delta: _dt.timedelta | None = None) -> str:
-    expire = _dt.datetime.now(_dt.timezone.utc) + (
+    expire = _dt.datetime.now(_dt.UTC) + (
         expires_delta or _dt.timedelta(minutes=settings.auth.access_token_expire_minutes)
     )
-    payload = {"sub": subject, "exp": expire, "iat": _dt.datetime.now(_dt.timezone.utc)}
+    payload = {"sub": subject, "exp": expire, "iat": _dt.datetime.now(_dt.UTC)}
     return jwt.encode(payload, settings.auth.secret_key, algorithm=settings.auth.algorithm)
 
 

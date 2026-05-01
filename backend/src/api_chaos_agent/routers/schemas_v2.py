@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, File, UploadFile
 
-from api_chaos_agent.core.deps import StoreDep
 from api_chaos_agent.core.exceptions import SchemaError, SchemaParseError
 from api_chaos_agent.core.security import CurrentUser
-from api_chaos_agent.models.schema import APISpec, ApiProtocol
+from api_chaos_agent.models.schema import ApiProtocol, APISpec
 from api_chaos_agent.services.grpc_graphql_parser import (
     GraphQLSchemaParser,
     GrpcSchemaParser,
@@ -39,7 +38,7 @@ async def parse_schema_v2(_user: CurrentUser, file: UploadFile = File(...)):
     else:
         raise SchemaError(
             detail=f"Use /api/v1/schemas/parse for REST/OpenAPI specs. "
-                   f"Detected protocol: {protocol.value}",
+            f"Detected protocol: {protocol.value}",
         )
 
 

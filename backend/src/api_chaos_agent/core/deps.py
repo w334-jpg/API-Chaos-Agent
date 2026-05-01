@@ -14,12 +14,12 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from api_chaos_agent.services.analytics_service import AnalyticsService
+from api_chaos_agent.services.cicd_service import CiCdService
 from api_chaos_agent.services.distributed_engine import DistributedExecutionEngine
 from api_chaos_agent.services.plugin_framework import PluginManager
-from api_chaos_agent.services.cicd_service import CiCdService
+from api_chaos_agent.services.store import _StoreProxy, store
 from api_chaos_agent.services.tenant_service import TenantService
-from api_chaos_agent.services.analytics_service import AnalyticsService
-from api_chaos_agent.services.store import InMemoryStore, _StoreProxy, store
 
 
 @lru_cache(maxsize=1)

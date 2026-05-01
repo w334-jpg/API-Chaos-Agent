@@ -3,7 +3,6 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from api_chaos_agent.core.exceptions import LicenseError as LicenseExc
-
 from api_chaos_agent.core.license import LicenseInfo, license_manager
 
 router = APIRouter(prefix="/license", tags=["license"])

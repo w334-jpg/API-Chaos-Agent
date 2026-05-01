@@ -9,15 +9,27 @@ from __future__ import annotations
 import re
 from typing import Any
 
-_SENSITIVE_HEADER_NAMES = frozenset({
-    "authorization", "cookie", "set-cookie", "x-api-key",
-    "x-auth-token", "x-csrf-token", "x-session-id",
-    "proxy-authorization", "www-authenticate",
-    "x-forwarded-for", "x-real-ip",
-})
+_SENSITIVE_HEADER_NAMES = frozenset(
+    {
+        "authorization",
+        "cookie",
+        "set-cookie",
+        "x-api-key",
+        "x-auth-token",
+        "x-csrf-token",
+        "x-session-id",
+        "proxy-authorization",
+        "www-authenticate",
+        "x-forwarded-for",
+        "x-real-ip",
+    }
+)
 
 _SENSITIVE_PARAM_PATTERNS = [
-    re.compile(r"(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key)", re.IGNORECASE),
+    re.compile(
+        r"(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key)",
+        re.IGNORECASE,
+    ),
     re.compile(r"(ssn|social[_-]?security|credit[_-]?card|card[_-]?number|cvv|cvc)", re.IGNORECASE),
     re.compile(r"(email|phone|mobile|address|zip|postal)", re.IGNORECASE),
 ]
@@ -29,9 +41,7 @@ _HOSTNAME_SANITIZE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-_IP_PATTERN = re.compile(
-    r"\b(?:\d{1,3}\.){3}\d{1,3}\b"
-)
+_IP_PATTERN = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 
 
 class SchemaSanitizer:
@@ -136,7 +146,10 @@ class SchemaSanitizer:
                 if isinstance(scheme, dict):
                     if "x-tokenUrl" in scheme:
                         scheme["x-tokenUrl"] = _REDACTED
-                    if scheme.get("type") in ("http",) and scheme.get("scheme") in ("basic", "bearer"):
+                    if scheme.get("type") in ("http",) and scheme.get("scheme") in (
+                        "basic",
+                        "bearer",
+                    ):
                         scheme["description"] = _REDACTED
 
         for schema_def in components.get("schemas", {}).values():

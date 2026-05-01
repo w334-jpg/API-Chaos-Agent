@@ -8,17 +8,14 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from api_chaos_agent.core.exceptions import NotFoundError, PluginError, RequestError, SecurityError
-
 from api_chaos_agent.core.deps import PluginManagerDep
+from api_chaos_agent.core.exceptions import NotFoundError, PluginError, RequestError, SecurityError
 from api_chaos_agent.models.plugin import FaultPlugin, FaultPluginExecution, PluginStatus
 
 router = APIRouter(prefix="/api/v2/plugins", tags=["plugins"])
 
 _ALLOWED_PLUGIN_DIRS: list[str] = [
-    d.strip()
-    for d in os.environ.get("API_CHAOS_AGENT_PLUGIN_DIRS", "").split(":")
-    if d.strip()
+    d.strip() for d in os.environ.get("API_CHAOS_AGENT_PLUGIN_DIRS", "").split(":") if d.strip()
 ]
 if not _ALLOWED_PLUGIN_DIRS:
     _ALLOWED_PLUGIN_DIRS = [
@@ -78,6 +75,7 @@ async def execute_plugin(
 
     from api_chaos_agent.models.scenario import ChaosScenario, ChaosScenarioType
     from api_chaos_agent.models.schema import Endpoint, HttpMethod
+
     scenario = ChaosScenario(
         id=scenario_id,
         name=f"plugin-{plugin_name}",

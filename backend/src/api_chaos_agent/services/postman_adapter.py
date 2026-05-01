@@ -60,8 +60,7 @@ class PostmanAdapter:
 
         if not schema_version.startswith("https://schema.getpostman.com/json/collection/v2.1"):
             raise ValueError(
-                f"Unsupported Postman Collection schema: {schema_version}. "
-                "Only v2.1 is supported."
+                f"Unsupported Postman Collection schema: {schema_version}. Only v2.1 is supported."
             )
 
         items = raw.get("item", [])
@@ -90,11 +89,13 @@ class PostmanAdapter:
 
         variables = []
         if spec.base_url:
-            variables.append({
-                "key": "base_url",
-                "value": spec.base_url,
-                "type": "string",
-            })
+            variables.append(
+                {
+                    "key": "base_url",
+                    "value": spec.base_url,
+                    "type": "string",
+                }
+            )
 
         return {
             "info": {
@@ -172,33 +173,39 @@ class PostmanAdapter:
         for param in request.get("url", {}).get("query", []) or []:
             if not isinstance(param, dict):
                 continue
-            params.append(Parameter(
-                name=param.get("key", ""),
-                location="query",
-                param_type=FieldType.STRING,
-                required=param.get("disabled", True) is False,
-                description=param.get("description", ""),
-            ))
+            params.append(
+                Parameter(
+                    name=param.get("key", ""),
+                    location="query",
+                    param_type=FieldType.STRING,
+                    required=param.get("disabled", True) is False,
+                    description=param.get("description", ""),
+                )
+            )
         for param in request.get("url", {}).get("variable", []) or []:
             if not isinstance(param, dict):
                 continue
-            params.append(Parameter(
-                name=param.get("key", ""),
-                location="path",
-                param_type=FieldType.STRING,
-                required=True,
-                description=param.get("description", ""),
-            ))
+            params.append(
+                Parameter(
+                    name=param.get("key", ""),
+                    location="path",
+                    param_type=FieldType.STRING,
+                    required=True,
+                    description=param.get("description", ""),
+                )
+            )
         for header in request.get("header", []) or []:
             if not isinstance(header, dict):
                 continue
-            params.append(Parameter(
-                name=header.get("key", ""),
-                location="header",
-                param_type=FieldType.STRING,
-                required=header.get("disabled", True) is False,
-                description=header.get("description", ""),
-            ))
+            params.append(
+                Parameter(
+                    name=header.get("key", ""),
+                    location="header",
+                    param_type=FieldType.STRING,
+                    required=header.get("disabled", True) is False,
+                    description=header.get("description", ""),
+                )
+            )
         return params
 
     def _parse_postman_body(self, request: dict) -> RequestBody | None:
@@ -237,11 +244,14 @@ class PostmanAdapter:
             fields = []
             for entry in body.get("formdata", []) or []:
                 if isinstance(entry, dict):
-                    fields.append(FieldConstraint(
-                        field_name=entry.get("key", ""),
-                        field_type=FieldType.STRING,
-                        required=entry.get("type", "text") != "text" or not entry.get("disabled", False),
-                    ))
+                    fields.append(
+                        FieldConstraint(
+                            field_name=entry.get("key", ""),
+                            field_type=FieldType.STRING,
+                            required=entry.get("type", "text") != "text"
+                            or not entry.get("disabled", False),
+                        )
+                    )
             return RequestBody(
                 content_type="multipart/form-data",
                 required=True,
@@ -253,10 +263,12 @@ class PostmanAdapter:
             fields = []
             for entry in body.get("urlencoded", []) or []:
                 if isinstance(entry, dict):
-                    fields.append(FieldConstraint(
-                        field_name=entry.get("key", ""),
-                        field_type=FieldType.STRING,
-                    ))
+                    fields.append(
+                        FieldConstraint(
+                            field_name=entry.get("key", ""),
+                            field_type=FieldType.STRING,
+                        )
+                    )
             return RequestBody(
                 content_type="application/x-www-form-urlencoded",
                 required=True,
@@ -297,11 +309,13 @@ class PostmanAdapter:
             else:
                 status_code = str(code).split()[0] if str(code) else "200"
 
-            responses.append(ResponseSpec(
-                status_code=status_code,
-                description=resp.get("name", ""),
-                content_type="application/json",
-            ))
+            responses.append(
+                ResponseSpec(
+                    status_code=status_code,
+                    description=resp.get("name", ""),
+                    content_type="application/json",
+                )
+            )
         return responses
 
     def _endpoint_to_item(self, endpoint: Endpoint, base_url: str | None) -> dict[str, Any]:
@@ -376,15 +390,18 @@ class PostmanAdapter:
 
         responses = []
         for resp in endpoint.responses:
-            responses.append({
-                "name": resp.description or f"Status {resp.status_code}",
-                "code": int(resp.status_code) if resp.status_code.isdigit() else 200,
-                "status": resp.description or "OK",
-                "_postman_previewlanguage": "json",
-            })
+            responses.append(
+                {
+                    "name": resp.description or f"Status {resp.status_code}",
+                    "code": int(resp.status_code) if resp.status_code.isdigit() else 200,
+                    "status": resp.description or "OK",
+                    "_postman_previewlanguage": "json",
+                }
+            )
 
         return {
-            "name": endpoint.summary or f"{_METHOD_REVERSE.get(endpoint.method, 'GET')} {endpoint.path}",
+            "name": endpoint.summary
+            or f"{_METHOD_REVERSE.get(endpoint.method, 'GET')} {endpoint.path}",
             "request": {
                 "method": _METHOD_REVERSE.get(endpoint.method, "GET"),
                 "header": headers,

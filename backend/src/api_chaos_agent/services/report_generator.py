@@ -2,20 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any
 import uuid
+from datetime import datetime
 
 from api_chaos_agent.models.report import (
     Finding,
     Report,
     ReportSummary,
     ScenarioResult,
-    Severity,
     TestResult,
 )
 from api_chaos_agent.models.scenario import ChaosScenarioType
-
 
 _SEVERITY_ORDER: dict[str, int] = {
     "critical": 0,

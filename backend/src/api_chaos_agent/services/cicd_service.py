@@ -15,7 +15,6 @@ Supports:
 
 from __future__ import annotations
 
-import json
 import time
 import uuid
 from typing import Any
@@ -35,7 +34,7 @@ class GitHubActionsGenerator:
     """Generate GitHub Actions workflow YAML for chaos testing."""
 
     def generate_workflow(self, config: PipelineConfig, pipeline_name: str = "chaos-test") -> str:
-        scenario_types_yaml = "\n".join(f"          - \"{t}\"" for t in config.scenario_types)
+        "\n".join(f'          - "{t}"' for t in config.scenario_types)
         return f"""name: API Chaos Test - {pipeline_name}
 
 on:
@@ -44,7 +43,7 @@ on:
   pull_request:
     branches: [ "{config.branch}" ]
   schedule:
-    - cron: "{config.schedule_cron or '0 6 * * 1'}"
+    - cron: "{config.schedule_cron or "0 6 * * 1"}"
   workflow_dispatch:
 
 jobs:
@@ -159,7 +158,9 @@ class CiCdService:
         )
         self._pipelines[pipeline.id] = pipeline
         self._runs[pipeline.id] = []
-        logger.info("pipeline_created", pipeline_id=pipeline.id, name=name, provider=config.provider.value)
+        logger.info(
+            "pipeline_created", pipeline_id=pipeline.id, name=name, provider=config.provider.value
+        )
         return pipeline
 
     def get_pipeline(self, pipeline_id: str) -> Pipeline | None:
@@ -209,9 +210,15 @@ class CiCdService:
         logger.info("pipeline_run_triggered", run_id=run.id, pipeline_id=pipeline_id)
         return run
 
-    def complete_run(self, run_id: str, pipeline_id: str, report_id: str | None = None,
-                     vulnerabilities: int = 0, max_severity: str | None = None,
-                     success: bool = True) -> PipelineRun | None:
+    def complete_run(
+        self,
+        run_id: str,
+        pipeline_id: str,
+        report_id: str | None = None,
+        vulnerabilities: int = 0,
+        max_severity: str | None = None,
+        success: bool = True,
+    ) -> PipelineRun | None:
         runs = self._runs.get(pipeline_id, [])
         for run in runs:
             if run.id == run_id:

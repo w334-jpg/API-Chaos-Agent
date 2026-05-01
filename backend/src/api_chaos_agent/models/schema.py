@@ -7,13 +7,13 @@ specific models.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class ApiProtocol(str, Enum):
+class ApiProtocol(StrEnum):
     """Supported API protocols."""
 
     REST = "rest"
@@ -21,7 +21,7 @@ class ApiProtocol(str, Enum):
     GRAPHQL = "graphql"
 
 
-class HttpMethod(str, Enum):
+class HttpMethod(StrEnum):
     """HTTP methods for REST endpoints."""
 
     GET = "GET"
@@ -33,7 +33,7 @@ class HttpMethod(str, Enum):
     OPTIONS = "OPTIONS"
 
 
-class GrpcMethodType(str, Enum):
+class GrpcMethodType(StrEnum):
     """gRPC method types."""
 
     UNARY = "unary"
@@ -42,7 +42,7 @@ class GrpcMethodType(str, Enum):
     BIDI_STREAMING = "bidi_streaming"
 
 
-class FieldType(str, Enum):
+class FieldType(StrEnum):
     """Data types for API fields."""
 
     STRING = "string"
@@ -82,7 +82,9 @@ class Parameter(BaseModel):
     param_type: FieldType = Field(description="Data type of the parameter")
     required: bool = Field(default=False, description="Whether the parameter is required")
     description: str = Field(default="", description="Human-readable description")
-    constraints: list[FieldConstraint] = Field(default_factory=list, description="Validation constraints")
+    constraints: list[FieldConstraint] = Field(
+        default_factory=list, description="Validation constraints"
+    )
 
 
 class RequestBody(BaseModel):
@@ -90,7 +92,9 @@ class RequestBody(BaseModel):
 
     content_type: str = Field(default="application/json", description="MIME content type")
     required: bool = Field(default=False, description="Whether the request body is required")
-    fields: list[FieldConstraint] = Field(default_factory=list, description="Body field constraints")
+    fields: list[FieldConstraint] = Field(
+        default_factory=list, description="Body field constraints"
+    )
     raw_schema: dict[str, Any] = Field(default_factory=dict, description="Original JSON Schema")
 
 
@@ -112,19 +116,31 @@ class GrpcField(BaseModel):
     optional: bool = Field(default=False, description="Whether the field is optional")
     message_type: str | None = Field(default=None, description="Referenced message type name")
     enum_values: list[str] | None = Field(default=None, description="Allowed enum values")
-    map_key_type: FieldType | None = Field(default=None, description="Map key type if field is a map")
-    map_value_type: FieldType | None = Field(default=None, description="Map value type if field is a map")
+    map_key_type: FieldType | None = Field(
+        default=None, description="Map key type if field is a map"
+    )
+    map_value_type: FieldType | None = Field(
+        default=None, description="Map value type if field is a map"
+    )
     oneof_group: str | None = Field(default=None, description="Oneof group name if applicable")
-    constraints: list[FieldConstraint] = Field(default_factory=list, description="Validation constraints")
+    constraints: list[FieldConstraint] = Field(
+        default_factory=list, description="Validation constraints"
+    )
 
 
 class GrpcMethod(BaseModel):
     """A method within a gRPC service."""
 
     name: str = Field(description="Method name")
-    method_type: GrpcMethodType = Field(default=GrpcMethodType.UNARY, description="gRPC method type")
-    request_fields: list[GrpcField] = Field(default_factory=list, description="Request message fields")
-    response_fields: list[GrpcField] = Field(default_factory=list, description="Response message fields")
+    method_type: GrpcMethodType = Field(
+        default=GrpcMethodType.UNARY, description="gRPC method type"
+    )
+    request_fields: list[GrpcField] = Field(
+        default_factory=list, description="Request message fields"
+    )
+    response_fields: list[GrpcField] = Field(
+        default_factory=list, description="Response message fields"
+    )
     description: str = Field(default="", description="Method description")
     deprecated: bool = Field(default=False, description="Whether the method is deprecated")
 
@@ -138,7 +154,7 @@ class GrpcService(BaseModel):
     description: str = Field(default="", description="Service description")
 
 
-class GraphQLOperationType(str, Enum):
+class GraphQLOperationType(StrEnum):
     """GraphQL operation types."""
 
     QUERY = "query"
@@ -176,7 +192,9 @@ class Endpoint(BaseModel):
     description: str = Field(default="", description="Detailed description")
     parameters: list[Parameter] = Field(default_factory=list, description="Endpoint parameters")
     request_body: RequestBody | None = Field(default=None, description="Request body specification")
-    responses: list[ResponseSpec] = Field(default_factory=list, description="Response specifications")
+    responses: list[ResponseSpec] = Field(
+        default_factory=list, description="Response specifications"
+    )
     tags: list[str] = Field(default_factory=list, description="Grouping tags")
     operation_id: str | None = Field(default=None, description="Unique operation identifier")
 
@@ -189,7 +207,11 @@ class APISpec(BaseModel):
     description: str = Field(default="", description="API description")
     protocol: ApiProtocol = Field(default=ApiProtocol.REST, description="Primary API protocol")
     endpoints: list[Endpoint] = Field(default_factory=list, description="REST endpoints")
-    grpc_services: list[GrpcService] = Field(default_factory=list, description="gRPC service definitions")
-    graphql_operations: list[GraphQLOperation] = Field(default_factory=list, description="GraphQL operations")
+    grpc_services: list[GrpcService] = Field(
+        default_factory=list, description="gRPC service definitions"
+    )
+    graphql_operations: list[GraphQLOperation] = Field(
+        default_factory=list, description="GraphQL operations"
+    )
     base_url: str | None = Field(default=None, description="API base URL")
     raw_spec: dict[str, Any] = Field(default_factory=dict, description="Original raw specification")

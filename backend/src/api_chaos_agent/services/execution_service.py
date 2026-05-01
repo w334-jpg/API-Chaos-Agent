@@ -33,6 +33,7 @@ class ExecutionService:
             scenario = await self._store.get_scenario(sid)
             if scenario is None:
                 from api_chaos_agent.core.exceptions import NotFoundError
+
                 raise NotFoundError(detail=f"Scenario not found: {sid}")
             scenarios.append(scenario)
 

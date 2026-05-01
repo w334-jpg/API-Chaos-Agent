@@ -24,10 +24,9 @@ class APIVersionMiddleware(BaseHTTPMiddleware):
         if any(path.startswith(prefix) for prefix in _DEPRECATED_PREFIXES):
             response.headers["Deprecation"] = "true"
             response.headers["Sunset"] = "2026-12-31"
-            v2_path = _V2_PREFIX + path[len("/api"):]
+            v2_path = _V2_PREFIX + path[len("/api") :]
             response.headers["Link"] = (
-                f'<{request.url.scheme}://{request.url.netloc}{v2_path}>; '
-                f'rel="successor-version"'
+                f'<{request.url.scheme}://{request.url.netloc}{v2_path}>; rel="successor-version"'
             )
 
         return response

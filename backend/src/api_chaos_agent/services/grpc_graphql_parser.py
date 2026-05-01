@@ -10,25 +10,22 @@ Extends the core SchemaParser to support non-REST API protocols.
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
-from typing import Any
 
 from api_chaos_agent.models.schema import (
     ApiProtocol,
     APISpec,
+    FieldConstraint,
     FieldType,
+    GraphQLField,
     GraphQLOperation,
     GraphQLOperationType,
-    GraphQLField,
     GrpcField,
     GrpcMethod,
     GrpcMethodType,
     GrpcService,
-    FieldConstraint,
 )
-
 
 _PROTO_TYPE_MAP: dict[str, FieldType] = {
     "string": FieldType.STRING,
@@ -46,7 +43,6 @@ _PROTO_TYPE_MAP: dict[str, FieldType] = {
     "double": FieldType.NUMBER,
     "bool": FieldType.BOOLEAN,
     "bytes": FieldType.BYTES,
-    "string": FieldType.STRING,
 }
 
 _GRAPHQL_TYPE_MAP: dict[str, FieldType] = {
@@ -66,7 +62,9 @@ class GrpcSchemaParser:
         if not path.exists():
             raise FileNotFoundError(f"Proto file not found: {file_path}")
         if path.suffix.lower() not in (".proto",):
-            raise ValueError(f"Unsupported file extension '{path.suffix}'. Only .proto is supported.")
+            raise ValueError(
+                f"Unsupported file extension '{path.suffix}'. Only .proto is supported."
+            )
         raw_text = path.read_text(encoding="utf-8")
         return self.parse_text(raw_text)
 
@@ -84,31 +82,35 @@ class GrpcSchemaParser:
         )
 
     def _extract_package(self, text: str) -> str:
-        match = re.search(r'^\s*package\s+([\w.]+)\s*;', text, re.MULTILINE)
+        match = re.search(r"^\s*package\s+([\w.]+)\s*;", text, re.MULTILINE)
         return match.group(1) if match else ""
 
     def _extract_services(self, text: str) -> list[GrpcService]:
         services: list[GrpcService] = []
-        service_pattern = re.compile(r'service\s+(\w+)\s*\{', re.DOTALL)
+        service_pattern = re.compile(r"service\s+(\w+)\s*\{", re.DOTALL)
         for match in service_pattern.finditer(text):
             name = match.group(1)
             start = match.end()
             depth = 1
             pos = start
             while pos < len(text) and depth > 0:
-                if text[pos] == '{':
+                if text[pos] == "{":
                     depth += 1
-                elif text[pos] == '}':
+                elif text[pos] == "}":
                     depth -= 1
                 pos += 1
-            body = text[start:pos - 1]
+            body = text[start : pos - 1]
             methods = self._extract_methods(body)
-            services.append(GrpcService(name=name, package=self._extract_package(text), methods=methods))
+            services.append(
+                GrpcService(name=name, package=self._extract_package(text), methods=methods)
+            )
         return services
 
     def _extract_methods(self, service_body: str) -> list[GrpcMethod]:
         methods: list[GrpcMethod] = []
-        method_pattern = re.compile(r'rpc\s+(\w+)\s*\(\s*(stream\s+)?(\w+)\s*\)\s*returns\s*\(\s*(stream\s+)?(\w+)\s*\)')
+        method_pattern = re.compile(
+            r"rpc\s+(\w+)\s*\(\s*(stream\s+)?(\w+)\s*\)\s*returns\s*\(\s*(stream\s+)?(\w+)\s*\)"
+        )
         for match in method_pattern.finditer(service_body):
             name = match.group(1)
             client_streaming = bool(match.group(2))
@@ -122,12 +124,22 @@ class GrpcSchemaParser:
                 method_type = GrpcMethodType.SERVER_STREAMING
             elif client_streaming:
                 method_type = GrpcMethodType.CLIENT_STREAMING
-            methods.append(GrpcMethod(
-                name=name,
-                method_type=method_type,
-                request_fields=[GrpcField(name="body", field_type=FieldType.OBJECT, message_type=request_type)],
-                response_fields=[GrpcField(name="body", field_type=FieldType.OBJECT, message_type=response_type)],
-            ))
+            methods.append(
+                GrpcMethod(
+                    name=name,
+                    method_type=method_type,
+                    request_fields=[
+                        GrpcField(
+                            name="body", field_type=FieldType.OBJECT, message_type=request_type
+                        )
+                    ],
+                    response_fields=[
+                        GrpcField(
+                            name="body", field_type=FieldType.OBJECT, message_type=response_type
+                        )
+                    ],
+                )
+            )
         return methods
 
 
@@ -139,7 +151,9 @@ class GraphQLSchemaParser:
         if not path.exists():
             raise FileNotFoundError(f"GraphQL schema file not found: {file_path}")
         if path.suffix.lower() not in (".graphql", ".gql", ".graphqls"):
-            raise ValueError(f"Unsupported file extension '{path.suffix}'. Only .graphql/.gql/.graphqls supported.")
+            raise ValueError(
+                f"Unsupported file extension '{path.suffix}'. Only .graphql/.gql/.graphqls supported."
+            )
         raw_text = path.read_text(encoding="utf-8")
         return self.parse_text(raw_text)
 
@@ -156,23 +170,31 @@ class GraphQLSchemaParser:
 
     def _extract_operations(self, text: str) -> list[GraphQLOperation]:
         operations: list[GraphQLOperation] = []
-        for op_type_def in [("Query", GraphQLOperationType.QUERY), ("Mutation", GraphQLOperationType.MUTATION), ("Subscription", GraphQLOperationType.SUBSCRIPTION)]:
+        for op_type_def in [
+            ("Query", GraphQLOperationType.QUERY),
+            ("Mutation", GraphQLOperationType.MUTATION),
+            ("Subscription", GraphQLOperationType.SUBSCRIPTION),
+        ]:
             keyword, op_type = op_type_def
-            pattern = re.compile(rf'type\s+{re.escape(keyword)}\s*(?:\w+\s*)?\{{([^}}]*)\}}', re.DOTALL)
+            pattern = re.compile(
+                rf"type\s+{re.escape(keyword)}\s*(?:\w+\s*)?\{{([^}}]*)\}}", re.DOTALL
+            )
             for match in pattern.finditer(text):
                 body = match.group(1)
                 fields = self._extract_fields(body)
                 for field in fields:
-                    operations.append(GraphQLOperation(
-                        name=field.name,
-                        operation_type=op_type,
-                        fields=[field],
-                    ))
+                    operations.append(
+                        GraphQLOperation(
+                            name=field.name,
+                            operation_type=op_type,
+                            fields=[field],
+                        )
+                    )
         return operations
 
     def _extract_fields(self, body: str) -> list[GraphQLField]:
         fields: list[GraphQLField] = []
-        field_pattern = re.compile(r'(\w+)\s*(?:\(([^)]*)\))?\s*:\s*(\[?\w+!?]?)')
+        field_pattern = re.compile(r"(\w+)\s*(?:\(([^)]*)\))?\s*:\s*(\[?\w+!?]?)")
         for match in field_pattern.finditer(body):
             name = match.group(1)
             args_str = match.group(2) or ""
@@ -181,12 +203,14 @@ class GraphQLSchemaParser:
             clean_type = return_type.replace("!", "").replace("[", "").replace("]", "")
             field_type = _GRAPHQL_TYPE_MAP.get(clean_type, FieldType.OBJECT)
             arguments = self._parse_arguments(args_str)
-            fields.append(GraphQLField(
-                name=name,
-                field_type=field_type,
-                nullable=nullable,
-                arguments=arguments,
-            ))
+            fields.append(
+                GraphQLField(
+                    name=name,
+                    field_type=field_type,
+                    nullable=nullable,
+                    arguments=arguments,
+                )
+            )
         return fields
 
     def _parse_arguments(self, args_str: str) -> list[FieldConstraint]:
@@ -202,7 +226,11 @@ class GraphQLSchemaParser:
                 name = parts[0].strip().lstrip("$")
                 type_str = parts[1].strip().replace("!", "")
                 field_type = _GRAPHQL_TYPE_MAP.get(type_str, FieldType.OBJECT)
-                constraints.append(FieldConstraint(field_name=name, field_type=field_type, required="!" in parts[1]))
+                constraints.append(
+                    FieldConstraint(
+                        field_name=name, field_type=field_type, required="!" in parts[1]
+                    )
+                )
         return constraints
 
 

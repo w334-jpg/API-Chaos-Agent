@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
 
 from api_chaos_agent.core.logging import get_logger
 from api_chaos_agent.models.tenant import (
@@ -107,8 +106,13 @@ class TenantService:
         limit = quota_map.get(resource, 0)
         return current < limit
 
-    def add_member(self, tenant_id: str, email: str, role: TeamMemberRole = TeamMemberRole.MEMBER,
-                   display_name: str = "") -> TeamMember | None:
+    def add_member(
+        self,
+        tenant_id: str,
+        email: str,
+        role: TeamMemberRole = TeamMemberRole.MEMBER,
+        display_name: str = "",
+    ) -> TeamMember | None:
         tenant = self._tenants.get(tenant_id)
         if not tenant:
             return None
@@ -147,7 +151,9 @@ class TenantService:
     def list_members(self, tenant_id: str) -> list[TeamMember]:
         return self._members.get(tenant_id, [])
 
-    def create_invite(self, tenant_id: str, email: str, role: TeamMemberRole = TeamMemberRole.MEMBER) -> TeamInvite | None:
+    def create_invite(
+        self, tenant_id: str, email: str, role: TeamMemberRole = TeamMemberRole.MEMBER
+    ) -> TeamInvite | None:
         tenant = self._tenants.get(tenant_id)
         if not tenant:
             return None

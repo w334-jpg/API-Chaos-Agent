@@ -16,9 +16,9 @@ from collections import OrderedDict
 from typing import Any
 
 from api_chaos_agent.core.config import settings
-from api_chaos_agent.models.schema import APISpec
+from api_chaos_agent.models.report import Report, TestResult
 from api_chaos_agent.models.scenario import ChaosScenario
-from api_chaos_agent.models.report import TestResult, Report
+from api_chaos_agent.models.schema import APISpec
 
 
 class _ExpiryOrderedDict(OrderedDict):
@@ -211,6 +211,7 @@ def _create_store() -> InMemoryStore:
 
 def _create_persistent_store():
     from api_chaos_agent.services.sqlite_store import SQLiteStore
+
     return SQLiteStore()
 
 

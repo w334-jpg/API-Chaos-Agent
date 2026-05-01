@@ -4,15 +4,10 @@ from __future__ import annotations
 # See LICENSE.BSL for details. Change Date: 2029-04-30
 # Use of this file in production requires a valid commercial license
 # unless your organization qualifies under the Additional Use Grant.
-
-
 from fastapi import APIRouter
 
-from api_chaos_agent.core.exceptions import RequestError, SchemaError
-
+from api_chaos_agent.core.exceptions import RequestError
 from api_chaos_agent.core.feature_gates import (
-    FEATURE_GATES,
-    PLAN_QUOTAS,
     check_quota,
     get_features_for_plan,
     get_quota_for_plan,

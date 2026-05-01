@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Annotated
-
 from fastapi import APIRouter
 
 from api_chaos_agent.core.deps import StoreDep
-from api_chaos_agent.core.exceptions import ExecutionError, NotFoundError, RequestError, SchemaError
+from api_chaos_agent.core.exceptions import NotFoundError, RequestError
 from api_chaos_agent.core.security import CurrentUser
 from api_chaos_agent.models.scenario import ChaosScenario
 from api_chaos_agent.services.execution_service import ExecutionService

@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from api_chaos_agent.core.exceptions import NotFoundError, RequestError, SchemaError
-
 from api_chaos_agent.core.deps import TenantServiceDep
+from api_chaos_agent.core.exceptions import NotFoundError, RequestError
 from api_chaos_agent.models.tenant import (
     TeamInvite,
     TeamMember,
@@ -86,14 +85,21 @@ async def remove_member(service: TenantServiceDep, tenant_id: str, member_id: st
 
 
 @router.put("/{tenant_id}/members/{member_id}/role")
-async def update_member_role(service: TenantServiceDep, tenant_id: str, member_id: str, role: TeamMemberRole):
+async def update_member_role(
+    service: TenantServiceDep, tenant_id: str, member_id: str, role: TeamMemberRole
+):
     if not service.update_member_role(tenant_id, member_id, role):
         raise RequestError(detail="Cannot update role")
     return {"status": "updated"}
 
 
 @router.post("/{tenant_id}/invites", response_model=TeamInvite)
-async def create_invite(service: TenantServiceDep, tenant_id: str, email: str, role: TeamMemberRole = TeamMemberRole.MEMBER):
+async def create_invite(
+    service: TenantServiceDep,
+    tenant_id: str,
+    email: str,
+    role: TeamMemberRole = TeamMemberRole.MEMBER,
+):
     invite = service.create_invite(tenant_id, email, role)
     if not invite:
         raise NotFoundError(detail="Tenant not found")
