@@ -217,7 +217,7 @@ class TestExecutionEngineReportGeneratorBlock:
         generator = ReportGenerator()
         report = generator.generate(result)
         assert report is not None
-        assert report.total_scenarios == 1
+        assert report.summary.total_scenarios == 1
 
     @pytest.mark.asyncio
     async def test_execute_multiple_then_report_has_all_findings(self):
@@ -238,7 +238,7 @@ class TestExecutionEngineReportGeneratorBlock:
 
         generator = ReportGenerator()
         report = generator.generate(result)
-        assert report.total_scenarios == 5
+        assert report.summary.total_scenarios == 5
 
     @pytest.mark.asyncio
     async def test_execute_tampering_then_report_classifies_vulnerability(self):
@@ -261,7 +261,7 @@ class TestExecutionEngineReportGeneratorBlock:
 
         generator = ReportGenerator()
         report = generator.generate(result)
-        assert report.vulnerabilities_found > 0
+        assert report.summary.failed > 0
 
     @pytest.mark.asyncio
     async def test_execute_rate_limit_no_protection_then_report_flags(self):
@@ -284,7 +284,7 @@ class TestExecutionEngineReportGeneratorBlock:
 
         generator = ReportGenerator()
         report = generator.generate(result)
-        assert report.vulnerabilities_found >= 1
+        assert report.summary.failed >= 1
 
 
 class TestLLMRouterScenarioGeneratorBlock:

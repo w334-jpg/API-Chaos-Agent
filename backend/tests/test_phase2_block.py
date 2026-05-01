@@ -294,7 +294,7 @@ class TestExecutionPipeline:
         ]
         result = await engine.execute(scenarios)
         report = report_gen.generate(result)
-        assert report.total_scenarios == 2
+        assert report.summary.total_scenarios == 2
 
     @pytest.mark.asyncio
     async def test_full_execution_pipeline_with_sqlite(self):
@@ -331,7 +331,7 @@ class TestExecutionPipeline:
         ]
         result = await engine.execute(scenarios)
         report = report_gen.generate(result)
-        assert report.vulnerabilities_found >= 1
+        assert report.summary.failed >= 1
         assert len(report.findings) >= 1
         assert report.findings[0].severity in (Severity.HIGH, Severity.CRITICAL, Severity.MEDIUM)
 
@@ -373,7 +373,7 @@ class TestReportPipeline:
         report_id = await store.save_report(report)
         retrieved = await store.get_report(report_id)
         assert retrieved is not None
-        assert retrieved.vulnerabilities_found == 1
+        assert retrieved.summary.failed == 1
         assert len(retrieved.findings) == 1
 
     @pytest.mark.asyncio
@@ -388,7 +388,7 @@ class TestReportPipeline:
             report_id = await store.save_report(report)
             retrieved = await store.get_report(report_id)
             assert retrieved is not None
-            assert retrieved.total_scenarios == 0
+            assert retrieved.summary.total_scenarios == 0
             store.close()
 
     @pytest.mark.asyncio
@@ -424,9 +424,9 @@ class TestReportPipeline:
             ],
         )
         report = report_gen.generate(tr)
-        assert report.severity_summary.get("critical", 0) == 1
-        assert report.severity_summary.get("high", 0) == 1
-        assert report.severity_summary.get("medium", 0) == 1
+        assert report.summary.severity_counts.get("critical", 0) == 1
+        assert report.summary.severity_counts.get("high", 0) == 1
+        assert report.summary.severity_counts.get("medium", 0) == 1
 
 
 # ══════════════════════════════════════════════════════════════
@@ -454,14 +454,13 @@ class TestSecurityBlock:
 
     @pytest.mark.asyncio
     async def test_auth_enabled_blocks_no_token(self):
-        from fastapi import HTTPException
+        from api_chaos_agent.core.exceptions import AuthenticationError
 
         original = settings.auth.enabled
         try:
             object.__setattr__(settings.auth, "enabled", True)
-            with pytest.raises(HTTPException) as exc_info:
+            with pytest.raises(AuthenticationError):
                 await get_current_user(None)
-            assert exc_info.value.status_code == 401
         finally:
             object.__setattr__(settings.auth, "enabled", original)
 
@@ -479,24 +478,25 @@ class TestSecurityBlock:
         finally:
             object.__setattr__(settings.auth, "enabled", original)
 
-    def test_rate_limit_sliding_window(self):
-        from api_chaos_agent.core.rate_limit import _SlidingWindow
+    def test_rate_limit_token_bucket(self):
+        from api_chaos_agent.core.rate_limit import _TokenBucket
 
-        window = _SlidingWindow()
+        bucket = _TokenBucket(max_tokens=10.0, refill_rate=1.0)
         now = time.monotonic()
         for _ in range(10):
-            window.record(now)
-        assert len(window.timestamps) == 10
+            assert bucket.consume(now) is True
+        assert bucket.consume(now) is False
 
-    def test_rate_limit_window_cleanup(self):
-        from api_chaos_agent.core.rate_limit import _SlidingWindow
+    def test_rate_limit_token_refill(self):
+        from api_chaos_agent.core.rate_limit import _TokenBucket
 
-        window = _SlidingWindow()
-        old = time.monotonic() - 120
-        window.timestamps = [old, old, old]
+        bucket = _TokenBucket(max_tokens=3.0, refill_rate=60.0)
         now = time.monotonic()
-        window.record(now)
-        assert old not in window.timestamps
+        for _ in range(3):
+            bucket.consume(now)
+        assert bucket.consume(now) is False
+        later = now + 1.0
+        assert bucket.consume(later) is True
 
 
 # ══════════════════════════════════════════════════════════════

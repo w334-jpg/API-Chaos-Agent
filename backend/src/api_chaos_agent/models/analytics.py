@@ -1,10 +1,10 @@
+"""Analytics models.
+
+Defines the data structures for analytics summaries, severity trends,
+endpoint risk scores, and report comparisons.
+"""
+
 from __future__ import annotations
-
-# Licensed under the Business Source License 1.1 (BSL 1.1)
-# See LICENSE.BSL for details. Change Date: 2029-04-30
-# Use of this file in production requires a valid commercial license
-# unless your organization qualifies under the Additional Use Grant.
-
 
 from datetime import datetime
 from enum import Enum
@@ -16,53 +16,63 @@ from api_chaos_agent.models.scenario import Severity
 
 
 class TrendPeriod(str, Enum):
+    """Time period for trend analysis."""
+
     DAILY = "daily"
     WEEKLY = "weekly"
     MONTHLY = "monthly"
 
 
 class SeverityTrend(BaseModel):
-    period: str
-    date: str
-    critical: int = 0
-    high: int = 0
-    medium: int = 0
-    low: int = 0
-    info: int = 0
-    total: int = 0
+    """Severity distribution for a single time period."""
+
+    period: str = Field(description="Time period label")
+    date: str = Field(description="Date of the trend data point")
+    critical: int = Field(default=0, description="Number of critical findings")
+    high: int = Field(default=0, description="Number of high findings")
+    medium: int = Field(default=0, description="Number of medium findings")
+    low: int = Field(default=0, description="Number of low findings")
+    info: int = Field(default=0, description="Number of informational findings")
+    total: int = Field(default=0, description="Total findings in this period")
 
 
 class EndpointRiskScore(BaseModel):
-    endpoint_path: str
-    endpoint_method: str
-    risk_score: float = Field(ge=0.0, le=100.0)
-    total_findings: int = 0
-    critical_count: int = 0
-    high_count: int = 0
-    last_tested_at: datetime | None = None
+    """Risk score for a specific API endpoint."""
+
+    endpoint_path: str = Field(description="API endpoint path")
+    endpoint_method: str = Field(description="HTTP method")
+    risk_score: float = Field(ge=0.0, le=100.0, description="Risk score (0-100)")
+    total_findings: int = Field(default=0, description="Total number of findings")
+    critical_count: int = Field(default=0, description="Number of critical findings")
+    high_count: int = Field(default=0, description="Number of high findings")
+    last_tested_at: datetime | None = Field(default=None, description="Last test timestamp")
 
 
 class ComparisonResult(BaseModel):
-    baseline_report_id: str
-    comparison_report_id: str
-    new_findings: int = 0
-    resolved_findings: int = 0
-    persistent_findings: int = 0
-    severity_changes: dict[str, dict[str, int]] = Field(default_factory=dict)
-    new_vulnerability_details: list[dict[str, Any]] = Field(default_factory=list)
-    resolved_vulnerability_details: list[dict[str, Any]] = Field(default_factory=list)
-    risk_score_delta: float = 0.0
-    improved: bool = True
+    """Result of comparing two chaos test reports."""
+
+    baseline_report_id: str = Field(description="Baseline report identifier")
+    comparison_report_id: str = Field(description="Comparison report identifier")
+    new_findings: int = Field(default=0, description="Findings present in comparison but not baseline")
+    resolved_findings: int = Field(default=0, description="Findings resolved since baseline")
+    persistent_findings: int = Field(default=0, description="Findings present in both reports")
+    severity_changes: dict[str, dict[str, int]] = Field(default_factory=dict, description="Severity count changes between reports")
+    new_vulnerability_details: list[dict[str, Any]] = Field(default_factory=list, description="Details of new vulnerabilities")
+    resolved_vulnerability_details: list[dict[str, Any]] = Field(default_factory=list, description="Details of resolved vulnerabilities")
+    risk_score_delta: float = Field(default=0.0, description="Change in overall risk score")
+    improved: bool = Field(default=True, description="Whether security posture improved")
 
 
 class AnalyticsSummary(BaseModel):
-    tenant_id: str = ""
-    period: TrendPeriod = TrendPeriod.WEEKLY
-    total_executions: int = 0
-    total_scenarios_run: int = 0
-    total_vulnerabilities: int = 0
-    severity_distribution: dict[str, int] = Field(default_factory=dict)
-    top_risk_endpoints: list[EndpointRiskScore] = Field(default_factory=list)
-    trends: list[SeverityTrend] = Field(default_factory=list)
+    """Aggregated analytics summary for a tenant."""
+
+    tenant_id: str = Field(default="", description="Tenant identifier")
+    period: TrendPeriod = Field(default=TrendPeriod.WEEKLY, description="Aggregation period")
+    total_executions: int = Field(default=0, description="Total test executions in the period")
+    total_scenarios_run: int = Field(default=0, description="Total scenarios executed")
+    total_vulnerabilities: int = Field(default=0, description="Total vulnerabilities found")
+    severity_distribution: dict[str, int] = Field(default_factory=dict, description="Vulnerability count by severity")
+    top_risk_endpoints: list[EndpointRiskScore] = Field(default_factory=list, description="Endpoints ranked by risk score")
+    trends: list[SeverityTrend] = Field(default_factory=list, description="Severity trends over time")
     pass_rate: float = Field(default=0.0, description="Percentage of scenarios with no vulnerability")
-    avg_execution_time_ms: float = 0.0
+    avg_execution_time_ms: float = Field(default=0.0, description="Average execution time in milliseconds")

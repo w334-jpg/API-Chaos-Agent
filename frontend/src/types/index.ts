@@ -67,6 +67,26 @@ export interface Execution {
   results?: ExecutionResult[]
 }
 
+export interface TestResult {
+  id: string
+  started_at: string
+  completed_at?: string
+  total_scenarios: number
+  completed_scenarios: number
+  failed_scenarios: number
+  results?: ScenarioResult[]
+}
+
+export interface ScenarioResult {
+  scenario_id: string
+  scenario_name: string
+  scenario_type: string
+  status: ExecutionStatus
+  severity: Severity
+  vulnerability_found: boolean
+  details?: string
+}
+
 export interface ExecutionResult {
   scenario_id: string
   passed: boolean
@@ -80,30 +100,37 @@ export interface ExecutionResult {
 
 export interface Report {
   id: string
-  execution_id: string
-  generated_at: string
+  schema_id: string
+  created_at: string
   summary: ReportSummary
   findings: ReportFinding[]
+  test_result?: TestResult
+  tenant_id?: string
 }
 
 export interface ReportSummary {
+  total_endpoints: number
   total_scenarios: number
   passed: number
   failed: number
-  severity_breakdown: Record<Severity, number>
+  errors: number
+  severity_counts: Record<Severity, number>
+  vulnerability_rate: number
 }
 
 export interface ReportFinding {
-  id: string
   scenario_id: string
-  endpoint: string
-  method: string
+  scenario_name: string
   scenario_type: ScenarioType
+  endpoint_path: string
+  endpoint_method: string
   severity: Severity
-  title: string
-  description: string
+  vulnerability_found: boolean
   details?: string
   recommendation?: string
+  response_status?: number
+  expected_behavior?: string
+  actual_behavior?: string
 }
 
 export interface HealthStatus {

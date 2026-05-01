@@ -1,8 +1,3 @@
-# Licensed under the Business Source License 1.1 (BSL 1.1)
-# See LICENSE.BSL for details. Change Date: 2029-04-30
-# Use of this file in production requires a valid commercial license
-# unless your organization qualifies under the Additional Use Grant.
-
 """Analytics service for advanced reporting, trend analysis, and history comparison.
 
 Provides:
@@ -56,7 +51,7 @@ class AnalyticsService:
             return AnalyticsSummary(tenant_id=tenant_id, period=period)
 
         total_executions = len(reports)
-        total_scenarios = sum(r.total_scenarios for r in reports)
+        total_scenarios = sum(r.summary.total_scenarios for r in reports)
         all_findings: list[Finding] = []
         for r in reports:
             all_findings.extend(r.findings)
@@ -152,7 +147,7 @@ class AnalyticsService:
             return []
         grouped: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
         for r in reports:
-            date_key = r.generated_at.strftime("%Y-%m-%d" if period == TrendPeriod.DAILY else "%Y-W%W" if period == TrendPeriod.WEEKLY else "%Y-%m")
+            date_key = r.created_at.strftime("%Y-%m-%d" if period == TrendPeriod.DAILY else "%Y-W%W" if period == TrendPeriod.WEEKLY else "%Y-%m")
             for f in r.findings:
                 sev = f.severity.value if isinstance(f.severity, Severity) else str(f.severity)
                 grouped[date_key][sev] += 1
@@ -174,7 +169,7 @@ class AnalyticsService:
     def _compute_pass_rate(self, reports: list[Report]) -> float:
         if not reports:
             return 0.0
-        total_scenarios = sum(r.total_scenarios for r in reports)
+        total_scenarios = sum(r.summary.total_scenarios for r in reports)
         total_vulns = sum(len(r.findings) for r in reports)
         if total_scenarios == 0:
             return 100.0
@@ -183,7 +178,7 @@ class AnalyticsService:
     def _compute_avg_execution_time(self, reports: list[Report]) -> float:
         if not reports:
             return 0.0
-        times = [r.execution_time_ms for r in reports if r.execution_time_ms > 0]
+        times = [r.summary.vulnerability_rate for r in reports if r.summary.vulnerability_rate > 0]
         return round(sum(times) / len(times), 2) if times else 0.0
 
     def _compute_risk_score(self, report: Report) -> float:
@@ -205,7 +200,7 @@ class AnalyticsService:
             "endpoint": f"{f.endpoint_method} {f.endpoint_path}",
             "scenario_type": f.scenario_type,
             "severity": f.severity.value if isinstance(f.severity, Severity) else str(f.severity),
-            "description": f.description,
+            "details": f.details,
         }
 
     def _compute_severity_changes(

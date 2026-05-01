@@ -5,13 +5,14 @@ from __future__ import annotations
 import re
 from typing import Annotated
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, UploadFile
 
 from api_chaos_agent.core.config import settings
+from api_chaos_agent.core.deps import StoreDep
+from api_chaos_agent.core.exceptions import NotFoundError, RequestError, SchemaError, SchemaParseError
 from api_chaos_agent.core.security import CurrentUser
 from api_chaos_agent.models.schema import APISpec
 from api_chaos_agent.services.schema_parser import SchemaParser
-from api_chaos_agent.services.store import store
 
 router = APIRouter(prefix="/api/schemas", tags=["schemas"])
 
@@ -35,31 +36,29 @@ def _sanitize_filename(name: str) -> str:
 @router.post("/upload", response_model=dict)
 async def upload_schema(
     _user: CurrentUser,
+    store: StoreDep,
     file: UploadFile = File(...),
 ) -> dict:
     if not file.filename:
-        raise HTTPException(status_code=400, detail="No filename provided")
+        raise SchemaError(detail="No filename provided")
 
     if file.size is not None and file.size > settings.server.max_upload_size:
-        raise HTTPException(status_code=413, detail="File too large (max 10 MB)")
+        raise SchemaError(detail="File too large (max 10 MB)")
 
     content = await file.read()
     if len(content) == 0:
-        raise HTTPException(status_code=400, detail="Empty file")
+        raise SchemaError(detail="Empty file")
 
     if len(content) > settings.server.max_upload_size:
-        raise HTTPException(status_code=413, detail="File too large (max 10 MB)")
+        raise SchemaError(detail="File too large (max 10 MB)")
 
     if file.content_type and file.content_type not in _ALLOWED_CONTENT_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported content type: {file.content_type}",
-        )
+        raise SchemaError(detail=f"Unsupported content type: {file.content_type}")
 
-    _sanitize_filename(file.filename)
+    safe_name = _sanitize_filename(file.filename)
 
     import tempfile, os
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=_suffix_for(file.filename))
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=_suffix_for(safe_name))
     try:
         tmp.write(content)
         tmp.flush()
@@ -68,7 +67,7 @@ async def upload_schema(
         parser = SchemaParser()
         spec: APISpec = parser.parse(tmp.name)
     except (FileNotFoundError, ValueError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise SchemaParseError(detail=str(exc))
     finally:
         try:
             os.unlink(tmp.name)
@@ -80,7 +79,7 @@ async def upload_schema(
 
 
 @router.get("/", response_model=dict)
-async def list_schemas(_user: CurrentUser) -> dict:
+async def list_schemas(_user: CurrentUser, store: StoreDep) -> dict:
     schemas = await store.list_schemas()
     return {
         "schemas": [
@@ -91,12 +90,12 @@ async def list_schemas(_user: CurrentUser) -> dict:
 
 
 @router.get("/{schema_id}", response_model=APISpec)
-async def get_schema(schema_id: str, _user: CurrentUser) -> APISpec:
+async def get_schema(schema_id: str, _user: CurrentUser, store: StoreDep) -> APISpec:
     if len(schema_id) > _MAX_SCHEMA_ID_LEN:
-        raise HTTPException(status_code=400, detail="schema_id too long")
+        raise RequestError(detail="schema_id too long")
     spec = await store.get_schema(schema_id)
     if spec is None:
-        raise HTTPException(status_code=404, detail="Schema not found")
+        raise NotFoundError(detail="Schema not found")
     return spec
 
 

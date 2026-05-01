@@ -10,7 +10,7 @@ import pytest_asyncio
 
 from api_chaos_agent.models.schema import APISpec, Endpoint, HttpMethod
 from api_chaos_agent.models.scenario import ChaosScenario, ChaosScenarioType, Severity
-from api_chaos_agent.models.report import TestResult, Report
+from api_chaos_agent.models.report import TestResult, Report, ReportSummary
 from api_chaos_agent.services.store import InMemoryStore
 
 
@@ -100,13 +100,13 @@ async def test_save_and_get_execution(store: InMemoryStore) -> None:
 
 @pytest.mark.asyncio
 async def test_save_and_get_report(store: InMemoryStore) -> None:
-    report = Report(title="Test Report", total_scenarios=3)
+    report = Report(id="test-report", schema_id="test-schema", summary=ReportSummary(total_scenarios=3))
     report_id = await store.save_report(report)
     assert report_id is not None
 
     retrieved = await store.get_report(report_id)
     assert retrieved is not None
-    assert retrieved.title == "Test Report"
+    assert retrieved.id == "test-report"
 
 
 @pytest.mark.asyncio

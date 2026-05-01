@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import time
 import uuid
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -57,7 +58,7 @@ class AuditLogger:
     MAX_ENTRIES = 10000
 
     def __init__(self, max_entries: int = MAX_ENTRIES) -> None:
-        self._entries: list[AuditEntry] = []
+        self._entries: deque[AuditEntry] = deque(maxlen=max_entries)
         self._max_entries = max_entries
 
     def record(
@@ -88,8 +89,6 @@ class AuditLogger:
             response_metadata=response_metadata or {},
         )
         self._entries.append(entry)
-        if len(self._entries) > self._max_entries:
-            self._entries = self._entries[-self._max_entries:]
         logger.info(
             "llm_audit",
             provider=provider,

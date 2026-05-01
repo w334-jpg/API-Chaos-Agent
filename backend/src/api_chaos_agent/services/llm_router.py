@@ -154,13 +154,13 @@ class LLMRouter:
         if self._http_client is not None and not self._http_client.is_closed:
             try:
                 import asyncio
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
+                try:
+                    loop = asyncio.get_running_loop()
                     loop.create_task(self._http_client.aclose())
-                else:
-                    loop.run_until_complete(self._http_client.aclose())
-            except Exception:
-                pass
+                except RuntimeError:
+                    asyncio.run(self._http_client.aclose())
+            except Exception as exc:
+                logger.warning("llm_http_client_close_failed", error=str(exc))
 
     def __del__(self) -> None:
         try:
@@ -195,7 +195,8 @@ class LLMRouter:
                 result = await self._call_local_model(prompt, system_prompt)
             else:
                 result = await self._call_cloud_model(prompt, system_prompt)
-        except Exception:
+        except Exception as exc:
+            logger.warning("llm_route_fallback", complexity=complexity.value, error=str(exc))
             result = await self._call_rule_engine(prompt)
 
         self._save_to_cache(cache_key, result)
@@ -206,11 +207,11 @@ class LLMRouter:
         prompts: list[tuple[str, TaskComplexity]],
         system_prompt: str = "",
     ) -> list[str]:
-        results: list[str] = []
-        for prompt, complexity in prompts:
-            result = await self.route(prompt, system_prompt=system_prompt, complexity=complexity)
-            results.append(result)
-        return results
+        tasks = [
+            self.route(prompt, system_prompt=system_prompt, complexity=complexity)
+            for prompt, complexity in prompts
+        ]
+        return list(await asyncio.gather(*tasks, return_exceptions=False))
 
     def classify_complexity(self, prompt: str) -> TaskComplexity:
         lower = prompt.lower()

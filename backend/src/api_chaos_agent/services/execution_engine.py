@@ -23,6 +23,8 @@ from typing import Any
 import httpx
 
 from api_chaos_agent.core.config import settings
+from api_chaos_agent.core.exceptions import ExecutionConnectionError, ExecutionError, ExecutionTimeoutError
+from api_chaos_agent.core.logging import get_logger
 from api_chaos_agent.models.report import (
     ExecutionConfig,
     ExecutionStatus,
@@ -36,6 +38,8 @@ from api_chaos_agent.models.schema import Endpoint, HttpMethod, FieldType
 
 class ExecutionEngine:
     """Execute chaos test scenarios against a target API."""
+
+    _logger = get_logger(__name__)
 
     def __init__(
         self,
@@ -134,12 +138,15 @@ class ExecutionEngine:
         except httpx.TimeoutException as exc:
             sr.status = ExecutionStatus.TIMEOUT
             sr.response = ResponseData(error=str(exc))
+            self._logger.warning("execution_timeout", scenario=scenario.name, error=str(exc))
         except httpx.ConnectError as exc:
             sr.status = ExecutionStatus.FAILED
             sr.response = ResponseData(error=str(exc))
+            self._logger.warning("execution_connection_error", scenario=scenario.name, error=str(exc))
         except Exception as exc:
             sr.status = ExecutionStatus.FAILED
             sr.response = ResponseData(error=str(exc))
+            self._logger.exception("execution_unexpected_error", scenario=scenario.name)
         finally:
             if scenario.scenario_type != ChaosScenarioType.RATE_LIMIT:
                 await self.close()
@@ -387,5 +394,5 @@ class ExecutionEngine:
     def _safe_json(response: httpx.Response) -> Any:
         try:
             return response.json()
-        except Exception:
+        except (ValueError, TypeError):
             return response.text

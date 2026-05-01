@@ -175,7 +175,7 @@ async def _run_full_pipeline(
 
         report_gen = ReportGenerator()
         report = report_gen.generate(result)
-        assert report.total_scenarios == len(scenarios), "Report scenario count mismatch"
+        assert report.summary.total_scenarios == len(scenarios), "Report scenario count mismatch"
 
         report_id = await store.save_report(report)
         retrieved_report = await store.get_report(report_id)
@@ -194,7 +194,7 @@ async def _run_full_pipeline(
             "scenario_count": len(scenarios),
             "exec_id": exec_id,
             "report_id": report_id,
-            "vulnerabilities": report.vulnerabilities_found,
+            "vulnerabilities": report.summary.failed,
             "stats": stats,
         }
     finally:
@@ -267,7 +267,7 @@ class TestComprehensiveRound1:
         scenarios = await generator.generate(spec)
         result = await engine.execute(scenarios)
         report = report_gen.generate(result)
-        assert report.total_scenarios == len(scenarios)
+        assert report.summary.total_scenarios == len(scenarios)
         router.close()
 
 
@@ -421,7 +421,7 @@ class TestComprehensiveRound3:
             ),
         ]
         report = report_gen.generate(tr)
-        assert report.vulnerabilities_found == 0
+        assert report.summary.failed == 0
         assert report.findings == []
 
     @pytest.mark.asyncio
@@ -481,20 +481,19 @@ class TestComprehensiveRound4:
     @pytest.mark.asyncio
     async def test_expired_token_rejected(self):
         import datetime as _dt
-        from fastapi import HTTPException
+        from api_chaos_agent.core.exceptions import AuthenticationError
 
         token = create_access_token(subject="expired_user", expires_delta=_dt.timedelta(seconds=-1))
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(AuthenticationError):
             _decode_token(token)
-        assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
     async def test_tampered_token_rejected(self):
-        from fastapi import HTTPException
+        from api_chaos_agent.core.exceptions import AuthenticationError
 
         token = create_access_token(subject="user1")
         tampered = token[:-5] + "XXXXX"
-        with pytest.raises(HTTPException):
+        with pytest.raises(AuthenticationError):
             _decode_token(tampered)
 
     @pytest.mark.asyncio

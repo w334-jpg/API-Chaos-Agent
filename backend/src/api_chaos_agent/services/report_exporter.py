@@ -14,15 +14,15 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
-from api_chaos_agent.models.report import Finding, Report, ScenarioResult, TestResult
+from api_chaos_agent.models.report import Finding, Report, ReportSummary, ScenarioResult, TestResult
 
 
 class ReportExporter:
     """Export test reports in multiple formats."""
 
     def export_html(self, report: Report) -> str:
-        title = report.title or "API Chaos Test Report"
-        generated = report.generated_at or datetime.now(timezone.utc).isoformat()
+        title = "API Chaos Test Report"
+        generated = report.created_at.isoformat() if report.created_at else datetime.now(timezone.utc).isoformat()
 
         vuln_rows = ""
         for v in report.findings:
@@ -32,8 +32,8 @@ class ReportExporter:
                 <td>{_esc(v.scenario_id)}</td>
                 <td>{_esc(v.scenario_type)}</td>
                 <td><span class="badge {severity_class}">{_esc(str(v.severity))}</span></td>
-                <td>{_esc(v.description)}</td>
-                <td>{_esc(v.remediation or "")}</td>
+                <td>{_esc(v.details)}</td>
+                <td>{_esc(v.recommendation or "")}</td>
             </tr>"""
 
         scenario_rows = ""
@@ -51,11 +51,11 @@ class ReportExporter:
                 <td>{_esc(error_str)}</td>
             </tr>"""
 
-        severity_summary = report.severity_summary
-        total_scenarios = report.total_scenarios
-        test_result = report.test_result
-        completed = test_result.completed_scenarios if test_result else 0
-        failed = test_result.failed_scenarios if test_result else 0
+        summary = report.summary
+        severity_summary = summary.severity_counts
+        total_scenarios = summary.total_scenarios
+        completed = summary.passed
+        failed = summary.failed
         vuln_count = len(report.findings)
         pass_rate = (completed / total_scenarios * 100) if total_scenarios > 0 else 0
 
@@ -124,7 +124,7 @@ footer {{ text-align: center; color: var(--gray); font-size: 0.875rem; margin-to
 
 <section>
 <h2>Vulnerabilities Found</h2>
-{"<table><tr><th>Scenario</th><th>Type</th><th>Severity</th><th>Description</th><th>Remediation</th></tr>" + vuln_rows + "</table>" if vuln_rows else "<p>No vulnerabilities found.</p>"}
+{"<table><tr><th>Scenario</th><th>Type</th><th>Severity</th><th>Details</th><th>Recommendation</th></tr>" + vuln_rows + "</table>" if vuln_rows else "<p>No vulnerabilities found.</p>"}
 </section>
 
 <section>
@@ -150,7 +150,7 @@ footer {{ text-align: center; color: var(--gray); font-size: 0.875rem; margin-to
         writer.writerow([
             "scenario_id", "scenario_type", "status", "duration_ms",
             "status_code", "error_message", "is_vulnerability",
-            "severity", "description", "remediation",
+            "severity", "details", "recommendation",
         ])
 
         vuln_map: dict[str, Finding] = {}
@@ -169,8 +169,8 @@ footer {{ text-align: center; color: var(--gray); font-size: 0.875rem; margin-to
                 s.response.error or s.details or "",
                 "yes" if vuln else "no",
                 str(vuln.severity) if vuln else "",
-                vuln.description if vuln else "",
-                vuln.remediation if vuln else "",
+                vuln.details if vuln else "",
+                vuln.recommendation if vuln else "",
             ])
 
         return output.getvalue()
@@ -183,22 +183,19 @@ footer {{ text-align: center; color: var(--gray); font-size: 0.875rem; margin-to
     def _report_to_dict(self, report: Report) -> dict[str, Any]:
         return {
             "id": report.id,
-            "title": report.title,
-            "generated_at": report.generated_at,
-            "total_scenarios": report.total_scenarios,
-            "vulnerabilities_found": report.vulnerabilities_found,
+            "schema_id": report.schema_id,
+            "created_at": report.created_at.isoformat() if report.created_at else None,
+            "summary": report.summary.model_dump(),
             "findings": [
                 {
                     "scenario_id": v.scenario_id,
                     "scenario_type": v.scenario_type,
                     "severity": str(v.severity),
-                    "description": v.description,
-                    "remediation": v.remediation,
-                    "reproduction_steps": v.reproduction_steps,
+                    "details": v.details,
+                    "recommendation": v.recommendation,
                 }
                 for v in report.findings
             ],
-            "severity_summary": report.severity_summary,
             "scenario_results": [
                 {
                     "scenario_id": s.scenario_id,

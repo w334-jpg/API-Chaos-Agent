@@ -2,28 +2,35 @@
 
 from __future__ import annotations
 
+import os
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 
 import httpx
 
+from api_chaos_agent.core.config import settings
+from api_chaos_agent.core.deps import StoreDep
+from api_chaos_agent.core.exceptions import ExecutionError, NotFoundError, RequestError
 from api_chaos_agent.core.security import CurrentUser
 from api_chaos_agent.models.report import ExecutionConfig, TestResult
 from api_chaos_agent.models.scenario import ChaosScenario
 from api_chaos_agent.services.execution_engine import ExecutionEngine
-from api_chaos_agent.services.store import store
 
 router = APIRouter(prefix="/api/executions", tags=["executions"])
 
 _MAX_ID_LEN = 256
 
 _mock_transport: httpx.AsyncBaseTransport | None = None
+_mock_transport_enabled: bool = False
 
 
 def set_mock_transport(transport: httpx.AsyncBaseTransport | None) -> None:
-    global _mock_transport
+    global _mock_transport, _mock_transport_enabled
+    if not settings.server.debug and os.environ.get("PYTEST_CURRENT_TEST") is None:
+        raise RuntimeError("Mock transport can only be set in debug mode or during testing")
     _mock_transport = transport
+    _mock_transport_enabled = transport is not None
 
 
 @router.post("/", response_model=dict)
@@ -31,6 +38,7 @@ async def create_execution(
     scenario_ids: Annotated[list[str], Query()],
     base_url: str,
     _user: CurrentUser,
+    store: StoreDep,
     concurrency: int = 10,
     timeout_seconds: float = 30.0,
     max_retries: int = 2,
@@ -38,20 +46,20 @@ async def create_execution(
     serial: bool = False,
 ) -> dict:
     if not scenario_ids:
-        raise HTTPException(status_code=400, detail="scenario_ids must be a non-empty list")
+        raise RequestError(detail="scenario_ids must be a non-empty list")
     if concurrency < 1:
-        raise HTTPException(status_code=400, detail="concurrency must be at least 1")
+        raise RequestError(detail="concurrency must be at least 1")
     for sid in scenario_ids:
         if not isinstance(sid, str):
-            raise HTTPException(status_code=400, detail="Each scenario_id must be a string")
+            raise RequestError(detail="Each scenario_id must be a string")
         if len(sid) > _MAX_ID_LEN:
-            raise HTTPException(status_code=400, detail="scenario_id too long")
+            raise RequestError(detail="scenario_id too long")
 
     scenarios: list[ChaosScenario] = []
     for sid in scenario_ids:
         scenario = await store.get_scenario(sid)
         if scenario is None:
-            raise HTTPException(status_code=404, detail=f"Scenario not found: {sid}")
+            raise NotFoundError(detail=f"Scenario not found: {sid}")
         scenarios.append(scenario)
 
     config = ExecutionConfig(
@@ -75,7 +83,7 @@ async def create_execution(
 
 
 @router.get("/", response_model=dict)
-async def list_executions(_user: CurrentUser) -> dict:
+async def list_executions(_user: CurrentUser, store: StoreDep) -> dict:
     executions = await store.list_executions()
     return {
         "executions": [
@@ -92,10 +100,10 @@ async def list_executions(_user: CurrentUser) -> dict:
 
 
 @router.get("/{execution_id}", response_model=TestResult)
-async def get_execution(execution_id: str, _user: CurrentUser) -> TestResult:
+async def get_execution(execution_id: str, _user: CurrentUser, store: StoreDep) -> TestResult:
     if len(execution_id) > _MAX_ID_LEN:
-        raise HTTPException(status_code=400, detail="execution_id too long")
+        raise RequestError(detail="execution_id too long")
     result = await store.get_execution(execution_id)
     if result is None:
-        raise HTTPException(status_code=404, detail="Execution not found")
+        raise NotFoundError(detail="Execution not found")
     return result

@@ -498,16 +498,14 @@ class TestLicenseManagerUnit:
         os.environ.pop("API_CHAOS_AGENT_ACADEMIC", None)
         self.manager._license_info = None
         self.manager._last_check = 0.0
-        from fastapi import HTTPException
-        with pytest.raises(HTTPException) as exc_info:
+        from api_chaos_agent.core.exceptions import SecurityError
+        with pytest.raises(SecurityError):
             self.manager.require_pro()
-        assert exc_info.value.status_code == 403
 
     def test_require_enterprise_raises_without_license(self):
-        from fastapi import HTTPException
-        with pytest.raises(HTTPException) as exc_info:
+        from api_chaos_agent.core.exceptions import SecurityError
+        with pytest.raises(SecurityError):
             self.manager.require_enterprise()
-        assert exc_info.value.status_code == 403
 
     def test_require_pro_succeeds_with_trial(self):
         key = generate_trial_license("test", days=30)
@@ -522,8 +520,8 @@ class TestLicenseManagerUnit:
     def test_require_enterprise_fails_with_pro(self):
         key = _make_license_key(license_type="commercial_pro", plan="pro")
         self.manager.install_license(key)
-        from fastapi import HTTPException
-        with pytest.raises(HTTPException):
+        from api_chaos_agent.core.exceptions import SecurityError
+        with pytest.raises(SecurityError):
             self.manager.require_enterprise()
 
     def test_license_caching(self):

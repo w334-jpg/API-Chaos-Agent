@@ -7,7 +7,6 @@ from API specifications before they are transmitted to third-party LLM providers
 from __future__ import annotations
 
 import re
-from copy import deepcopy
 from typing import Any
 
 _SENSITIVE_HEADER_NAMES = frozenset({
@@ -36,20 +35,23 @@ _IP_PATTERN = re.compile(
 
 
 class SchemaSanitizer:
-    """Sanitize API specifications to remove sensitive data before LLM processing."""
+    """Sanitize API specifications to remove sensitive data before LLM processing.
+
+    Performs in-place modification of the spec dict to avoid the overhead
+    of ``deepcopy`` on large schemas.  Callers that need the original
+    untouched should pass a copy themselves.
+    """
 
     def sanitize(self, spec: dict[str, Any]) -> dict[str, Any]:
-        sanitized = deepcopy(spec)
-        sanitized = self._sanitize_servers(sanitized)
-        sanitized = self._sanitize_paths(sanitized)
-        sanitized = self._sanitize_components(sanitized)
-        sanitized = self._sanitize_security(sanitized)
-        sanitized = self._sanitize_info(sanitized)
-        return sanitized
+        self._sanitize_servers(spec)
+        self._sanitize_paths(spec)
+        self._sanitize_components(spec)
+        self._sanitize_security(spec)
+        self._sanitize_info(spec)
+        return spec
 
-    def _sanitize_servers(self, spec: dict) -> dict:
-        servers = spec.get("servers", [])
-        for server in servers:
+    def _sanitize_servers(self, spec: dict) -> None:
+        for server in spec.get("servers", []):
             if isinstance(server, dict):
                 url = server.get("url", "")
                 server["url"] = self._sanitize_url(url)
@@ -58,24 +60,20 @@ class SchemaSanitizer:
                     for key, var in variables.items():
                         if isinstance(var, dict) and "default" in var:
                             var["default"] = self._sanitize_value(key, var["default"])
-        return spec
 
-    def _sanitize_paths(self, spec: dict) -> dict:
-        paths = spec.get("paths", {})
-        for path, path_item in paths.items():
+    def _sanitize_paths(self, spec: dict) -> None:
+        for path_item in spec.get("paths", {}).values():
             if not isinstance(path_item, dict):
                 continue
-            for method, operation in path_item.items():
+            for operation in path_item.values():
                 if not isinstance(operation, dict):
                     continue
                 self._sanitize_operation(operation)
-        return spec
 
     def _sanitize_operation(self, operation: dict) -> None:
         for param in operation.get("parameters", []):
-            if not isinstance(param, dict):
-                continue
-            self._sanitize_parameter(param)
+            if isinstance(param, dict):
+                self._sanitize_parameter(param)
 
         request_body = operation.get("requestBody")
         if isinstance(request_body, dict):
@@ -102,8 +100,7 @@ class SchemaSanitizer:
             param["description"] = self._redact_description(param.get("description", ""))
 
     def _sanitize_request_body(self, body: dict) -> None:
-        content = body.get("content", {})
-        for ct, ct_value in content.items():
+        for ct_value in body.get("content", {}).values():
             if not isinstance(ct_value, dict):
                 continue
             schema = ct_value.get("schema", {})
@@ -131,40 +128,36 @@ class SchemaSanitizer:
         if isinstance(items, dict):
             self._sanitize_schema(items)
 
-    def _sanitize_components(self, spec: dict) -> dict:
+    def _sanitize_components(self, spec: dict) -> None:
         components = spec.get("components", {})
         security_schemes = components.get("securitySchemes", {})
         if isinstance(security_schemes, dict):
-            for name, scheme in security_schemes.items():
+            for scheme in security_schemes.values():
                 if isinstance(scheme, dict):
                     if "x-tokenUrl" in scheme:
                         scheme["x-tokenUrl"] = _REDACTED
                     if scheme.get("type") in ("http",) and scheme.get("scheme") in ("basic", "bearer"):
                         scheme["description"] = _REDACTED
 
-        for schema_name, schema_def in components.get("schemas", {}).items():
+        for schema_def in components.get("schemas", {}).values():
             if isinstance(schema_def, dict):
                 self._sanitize_schema(schema_def)
-        return spec
 
-    def _sanitize_security(self, spec: dict) -> dict:
+    def _sanitize_security(self, spec: dict) -> None:
         security = spec.get("security", [])
         if isinstance(security, list):
             for sec_req in security:
                 if isinstance(sec_req, dict):
                     for scheme_name, scopes in sec_req.items():
                         sec_req[scheme_name] = [_REDACTED if s else s for s in (scopes or [])]
-        return spec
 
-    def _sanitize_info(self, spec: dict) -> dict:
-        info = spec.get("info", {})
-        contact = info.get("contact", {})
+    def _sanitize_info(self, spec: dict) -> None:
+        contact = spec.get("info", {}).get("contact", {})
         if isinstance(contact, dict):
             if "email" in contact:
                 contact["email"] = _REDACTED
             if "name" in contact:
                 contact["name"] = _REDACTED
-        return spec
 
     def _sanitize_url(self, url: str) -> str:
         url = _HOSTNAME_SANITIZE_PATTERN.sub(r"\1[sanitized-host]", url)

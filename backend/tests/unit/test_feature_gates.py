@@ -13,7 +13,7 @@ import time
 import threading
 from unittest.mock import MagicMock
 
-from fastapi import HTTPException
+from api_chaos_agent.core.exceptions import AuthenticationError, SecurityError
 
 from api_chaos_agent.core.feature_gates import (
     FEATURE_GATES,
@@ -156,9 +156,8 @@ class TestRequirePlanDecorator:
             return "success"
 
         tenant = _make_tenant(TenantPlan.FREE)
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(SecurityError):
             await protected_func(tenant=tenant)
-        assert exc_info.value.status_code == 403
 
     @pytest.mark.asyncio
     async def test_no_tenant_raises_401(self):
@@ -166,9 +165,8 @@ class TestRequirePlanDecorator:
         async def protected_func():
             return "success"
 
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(AuthenticationError):
             await protected_func()
-        assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
     async def test_enterprise_passes_pro_requirement(self):
@@ -207,9 +205,8 @@ class TestRequirePlanDecorator:
             return "success"
 
         tenant = _make_tenant(TenantPlan.PRO)
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(SecurityError):
             await protected_func(tenant=tenant)
-        assert exc_info.value.status_code == 403
 
     @pytest.mark.asyncio
     async def test_free_plan_rejected_for_pro_feature(self):
@@ -218,7 +215,7 @@ class TestRequirePlanDecorator:
             return "success"
 
         tenant = _make_tenant(TenantPlan.FREE)
-        with pytest.raises(HTTPException):
+        with pytest.raises(SecurityError):
             await protected_func(tenant=tenant)
 
 
@@ -242,9 +239,8 @@ class TestRequireFeatureDecorator:
             return "success"
 
         tenant = _make_tenant(TenantPlan.FREE)
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(SecurityError):
             await protected_func(tenant=tenant)
-        assert exc_info.value.status_code == 403
 
     @pytest.mark.asyncio
     async def test_enterprise_feature_on_pro_raises_403(self):
@@ -253,9 +249,8 @@ class TestRequireFeatureDecorator:
             return "success"
 
         tenant = _make_tenant(TenantPlan.PRO)
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(SecurityError):
             await protected_func(tenant=tenant)
-        assert exc_info.value.status_code == 403
 
     @pytest.mark.asyncio
     async def test_enterprise_feature_on_enterprise_passes(self):
@@ -273,9 +268,8 @@ class TestRequireFeatureDecorator:
         async def protected_func():
             return "success"
 
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(AuthenticationError):
             await protected_func()
-        assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
     async def test_unknown_feature_passes(self):
@@ -294,7 +288,7 @@ class TestRequireFeatureDecorator:
             return "success"
 
         tenant = _make_tenant(TenantPlan.PRO)
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(SecurityError) as exc_info:
             await protected_func(tenant=tenant)
         assert "sso" in exc_info.value.detail
         assert "pro" in exc_info.value.detail
@@ -444,7 +438,7 @@ class TestFeatureGateEdgeCases:
             return "success"
 
         tenant_pro = _make_tenant(TenantPlan.PRO)
-        with pytest.raises(HTTPException):
+        with pytest.raises(SecurityError):
             await double_protected(tenant=tenant_pro)
 
     def test_get_features_for_plan_returns_new_dict(self):

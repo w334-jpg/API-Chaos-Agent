@@ -9,6 +9,7 @@ from typing import Any
 import yaml
 from prance import ResolvingParser
 
+from api_chaos_agent.core.logging import get_logger
 from api_chaos_agent.models.schema import (
     APISpec,
     Endpoint,
@@ -44,6 +45,8 @@ _TYPE_MAP: dict[str, FieldType] = {
 class SchemaParser:
     """Parse OpenAPI 3.0 specification files into structured APISpec objects."""
 
+    _logger = get_logger(__name__)
+
     def parse(self, file_path: str) -> APISpec:
         path = Path(file_path)
         if not path.exists():
@@ -73,8 +76,8 @@ class SchemaParser:
         try:
             resolved_parser = ResolvingParser(str(path), backend="openapi-spec-validator")
             spec = resolved_parser.specification
-        except Exception:
-            pass
+        except Exception as exc:
+            self._logger.warning("schema_ref_resolution_failed", file=file_path, error=str(exc))
 
         info = spec.get("info", {})
         title = info.get("title", "")

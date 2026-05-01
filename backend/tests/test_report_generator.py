@@ -11,6 +11,7 @@ from api_chaos_agent.models.report import (
     ExecutionStatus,
     Finding,
     Report,
+    ReportSummary,
     ResponseData,
     ScenarioResult,
     Severity,
@@ -92,26 +93,26 @@ class TestGenerateReport:
         report = generator.generate(test_result_with_vulns)
         assert isinstance(report, Report)
 
-    def test_report_has_title(self, generator, test_result_with_vulns):
+    def test_report_has_id(self, generator, test_result_with_vulns):
         report = generator.generate(test_result_with_vulns)
-        assert report.title
-        assert "API Chaos Test Report" in report.title
+        assert report.id
+        assert isinstance(report.id, str)
 
-    def test_report_has_generated_at(self, generator, test_result_with_vulns):
+    def test_report_has_created_at(self, generator, test_result_with_vulns):
         report = generator.generate(test_result_with_vulns)
-        assert isinstance(report.generated_at, datetime)
+        assert isinstance(report.created_at, datetime)
 
     def test_report_total_scenarios(self, generator, test_result_with_vulns):
         report = generator.generate(test_result_with_vulns)
-        assert report.total_scenarios == 4
+        assert report.summary.total_scenarios == 4
 
     def test_report_vulnerabilities_count(self, generator, test_result_with_vulns):
         report = generator.generate(test_result_with_vulns)
-        assert report.vulnerabilities_found == 3
+        assert report.summary.failed == 3
 
     def test_report_no_vulnerabilities(self, generator, test_result_no_vulns):
         report = generator.generate(test_result_no_vulns)
-        assert report.vulnerabilities_found == 0
+        assert report.summary.failed == 0
 
     def test_report_includes_test_result(self, generator, test_result_with_vulns):
         report = generator.generate(test_result_with_vulns)
@@ -136,37 +137,23 @@ class TestExtractFindings:
         for i in range(len(findings) - 1):
             assert severity_order.get(findings[i].severity.value, 99) <= severity_order.get(findings[i + 1].severity.value, 99)
 
-    def test_finding_has_remediation(self, generator, test_result_with_vulns):
+    def test_finding_has_recommendation(self, generator, test_result_with_vulns):
         findings = generator._extract_findings(test_result_with_vulns)
         for f in findings:
-            assert f.remediation
-            assert isinstance(f.remediation, str)
-
-    def test_finding_has_reproduction_steps(self, generator, test_result_with_vulns):
-        findings = generator._extract_findings(test_result_with_vulns)
-        for f in findings:
-            assert isinstance(f.reproduction_steps, list)
-            assert len(f.reproduction_steps) > 0
-
-    def test_finding_has_response_snapshot(self, generator, test_result_with_vulns):
-        findings = generator._extract_findings(test_result_with_vulns)
-        for f in findings:
-            assert isinstance(f.response_snapshot, dict)
+            assert f.recommendation
+            assert isinstance(f.recommendation, str)
 
 
 class TestSeveritySummary:
 
-    def test_summary_counts(self, generator, test_result_with_vulns):
-        findings = generator._extract_findings(test_result_with_vulns)
-        summary = generator._summarize_severities(findings)
-        assert isinstance(summary, dict)
-        total = sum(summary.values())
-        assert total == len(findings)
+    def test_summary_in_report(self, generator, test_result_with_vulns):
+        report = generator.generate(test_result_with_vulns)
+        assert isinstance(report.summary, ReportSummary)
+        assert report.summary.severity_counts is not None
 
     def test_empty_summary_for_no_findings(self, generator, test_result_no_vulns):
-        findings = generator._extract_findings(test_result_no_vulns)
-        summary = generator._summarize_severities(findings)
-        assert summary == {}
+        report = generator.generate(test_result_no_vulns)
+        assert report.summary.severity_counts == {}
 
 
 class TestRemediation:
@@ -196,59 +183,3 @@ class TestRemediation:
         remediation = generator._suggest_remediation(result)
         assert isinstance(remediation, str)
         assert len(remediation) > 0
-
-
-class TestResponseSnapshot:
-
-    def test_snapshot_includes_status_code(self, generator):
-        result = _make_scenario_result()
-        snap = generator._snapshot_response(result)
-        assert "status_code" in snap
-        assert snap["status_code"] == 200
-
-    def test_snapshot_includes_elapsed(self, generator):
-        result = _make_scenario_result()
-        snap = generator._snapshot_response(result)
-        assert "elapsed_ms" in snap
-
-    def test_snapshot_includes_error(self, generator):
-        result = ScenarioResult(
-            scenario_id="test",
-            scenario_name="test",
-            scenario_type="latency",
-            severity=Severity.MEDIUM,
-            status=ExecutionStatus.FAILED,
-            response=ResponseData(error="Connection refused"),
-        )
-        snap = generator._snapshot_response(result)
-        assert "error" in snap
-
-    def test_snapshot_includes_body_preview(self, generator):
-        result = _make_scenario_result()
-        snap = generator._snapshot_response(result)
-        assert "body_preview" in snap
-
-
-class TestReproductionSteps:
-
-    def test_steps_include_scenario_name(self, generator):
-        result = _make_scenario_result()
-        steps = generator._build_reproduction_steps(result)
-        assert any("latency" in s.lower() for s in steps)
-
-    def test_steps_include_status_code(self, generator):
-        result = _make_scenario_result()
-        steps = generator._build_reproduction_steps(result)
-        assert any("200" in s for s in steps)
-
-    def test_steps_include_error(self, generator):
-        result = ScenarioResult(
-            scenario_id="test",
-            scenario_name="test",
-            scenario_type="latency",
-            severity=Severity.MEDIUM,
-            status=ExecutionStatus.FAILED,
-            response=ResponseData(error="Timeout"),
-        )
-        steps = generator._build_reproduction_steps(result)
-        assert any("Timeout" in s for s in steps)

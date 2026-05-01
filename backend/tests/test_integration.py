@@ -92,7 +92,7 @@ class TestFullWorkflow:
         assert report_resp.status_code == 200
         report_data = report_resp.json()
         report_id = report_data["report_id"]
-        assert report_data["total_scenarios"] == len(scenario_ids)
+        assert report_data["summary"]["total_scenarios"] == len(scenario_ids)
 
         get_report_resp = client.get(f"/api/reports/{report_id}")
         assert get_report_resp.status_code == 200
@@ -100,7 +100,7 @@ class TestFullWorkflow:
         assert full_report["id"] == report_id
         assert len(full_report["findings"]) > 0
 
-        assert "severity_summary" in full_report
+        assert "summary" in full_report
 
     def test_schema_list_after_upload(self, client):
         _upload_petstore(client)

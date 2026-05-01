@@ -1,12 +1,19 @@
-from __future__ import annotations
+"""License management for API Chaos Agent.
 
-# Licensed under the Business Source License 1.1 (BSL 1.1)
-# See LICENSE.BSL for details. Change Date: 2029-04-30
-# Use of this file in production requires a valid commercial license
-# unless your organization qualifies under the Additional Use Grant.
+Handles BSL 1.1 compliance, commercial license verification,
+trial license generation, and feature gating based on license tier.
+
+Licensed under the Business Source License 1.1 (BSL 1.1).
+See LICENSE.BSL for details. Change Date: 2029-04-30.
+Use of this file in production requires a valid commercial license
+unless your organization qualifies under the Additional Use Grant.
+"""
+
+from __future__ import annotations
 
 
 import hashlib
+import hmac
 import json
 import os
 import time
@@ -98,7 +105,10 @@ class LicenseInfo(BaseModel):
         return max(0, delta.days)
 
 
-_LICENSE_SECRET = "api-chaos-agent-license-verification-key-v2"
+_LICENSE_SECRET = os.environ.get(
+    "API_CHAOS_AGENT_LICENSE_SECRET",
+    "api-chaos-agent-license-verification-key-v2",
+)
 
 _LICENSE_FILE_PATHS = [
     Path("license.key"),
@@ -108,13 +118,16 @@ _LICENSE_FILE_PATHS = [
 
 
 def _verify_signature(payload: str, signature: str) -> bool:
-    expected = hashlib.sha256(f"{payload}{_LICENSE_SECRET}".encode()).hexdigest()
-    return hashlib.sha256(expected.encode()).hexdigest() == signature
+    expected = hmac.new(
+        _LICENSE_SECRET.encode(), payload.encode(), hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
 
 
 def _generate_signature(payload: str) -> str:
-    intermediate = hashlib.sha256(f"{payload}{_LICENSE_SECRET}".encode()).hexdigest()
-    return hashlib.sha256(intermediate.encode()).hexdigest()
+    return hmac.new(
+        _LICENSE_SECRET.encode(), payload.encode(), hashlib.sha256
+    ).hexdigest()
 
 
 def _read_license_file() -> str | None:
@@ -252,18 +265,16 @@ class LicenseManager:
 
     def require_pro(self) -> None:
         if not self.can_use_pro_features():
-            from fastapi import HTTPException
-            raise HTTPException(
-                status_code=403,
+            from api_chaos_agent.core.exceptions import SecurityError
+            raise SecurityError(
                 detail="This feature requires a Professional or Enterprise license. "
                        "Visit /pricing for details or contact license@api-chaos-agent.dev",
             )
 
     def require_enterprise(self) -> None:
         if not self.can_use_enterprise_features():
-            from fastapi import HTTPException
-            raise HTTPException(
-                status_code=403,
+            from api_chaos_agent.core.exceptions import SecurityError
+            raise SecurityError(
                 detail="This feature requires an Enterprise license. "
                        "Contact license@api-chaos-agent.dev for pricing.",
             )
@@ -277,8 +288,8 @@ class LicenseManager:
             license_dir.mkdir(parents=True, exist_ok=True)
             license_path = license_dir / "license.key"
             license_path.write_text(key)
-        except (PermissionError, OSError):
-            pass
+        except (PermissionError, OSError) as exc:
+            logger.warning("license_file_write_failed", error=str(exc), path=str(license_path))
         self._license_info = info
         self._last_check = time.monotonic()
         logger.info("license_installed", type=info.license_type.value, plan=info.plan.value)

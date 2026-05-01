@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
+from api_chaos_agent.core.deps import StoreDep
+from api_chaos_agent.core.exceptions import ExecutionError, NotFoundError, RequestError, SchemaError
 from api_chaos_agent.core.security import CurrentUser
 from api_chaos_agent.models.scenario import ChaosScenario
+from api_chaos_agent.services.execution_service import ExecutionService
 from api_chaos_agent.services.llm_router import LLMRouter
 from api_chaos_agent.services.scenario_generator import ScenarioGenerator
-from api_chaos_agent.services.store import store
 
 router = APIRouter(prefix="/api/scenarios", tags=["scenarios"])
 
@@ -18,13 +20,13 @@ _MAX_ID_LEN = 256
 
 
 @router.post("/generate/{schema_id}", response_model=dict)
-async def generate_scenarios(schema_id: str, _user: CurrentUser) -> dict:
+async def generate_scenarios(schema_id: str, _user: CurrentUser, store: StoreDep) -> dict:
     if len(schema_id) > _MAX_ID_LEN:
-        raise HTTPException(status_code=400, detail="schema_id too long")
+        raise RequestError(detail="schema_id too long")
 
     spec = await store.get_schema(schema_id)
     if spec is None:
-        raise HTTPException(status_code=404, detail="Schema not found")
+        raise NotFoundError(detail="Schema not found")
 
     llm_router = LLMRouter()
     generator = ScenarioGenerator(llm_router=llm_router)
@@ -43,7 +45,7 @@ async def generate_scenarios(schema_id: str, _user: CurrentUser) -> dict:
 
 
 @router.get("/", response_model=dict)
-async def list_scenarios(_user: CurrentUser) -> dict:
+async def list_scenarios(_user: CurrentUser, store: StoreDep) -> dict:
     scenarios = await store.list_scenarios()
     return {
         "scenarios": [
@@ -60,12 +62,12 @@ async def list_scenarios(_user: CurrentUser) -> dict:
 
 
 @router.get("/{scenario_id}", response_model=ChaosScenario)
-async def get_scenario(scenario_id: str, _user: CurrentUser) -> ChaosScenario:
+async def get_scenario(scenario_id: str, _user: CurrentUser, store: StoreDep) -> ChaosScenario:
     if len(scenario_id) > _MAX_ID_LEN:
-        raise HTTPException(status_code=400, detail="scenario_id too long")
+        raise RequestError(detail="scenario_id too long")
     scenario = await store.get_scenario(scenario_id)
     if scenario is None:
-        raise HTTPException(status_code=404, detail="Scenario not found")
+        raise NotFoundError(detail="Scenario not found")
     return scenario
 
 
@@ -74,35 +76,24 @@ async def execute_scenarios(
     scenario_ids: list[str],
     base_url: str,
     _user: CurrentUser,
+    store: StoreDep,
     concurrency: int = 10,
     timeout_seconds: float = 30.0,
 ) -> dict:
     if not scenario_ids:
-        raise HTTPException(status_code=400, detail="scenario_ids must be a non-empty list")
+        raise RequestError(detail="scenario_ids must be a non-empty list")
 
     for sid in scenario_ids:
         if not isinstance(sid, str):
-            raise HTTPException(status_code=400, detail="Each scenario_id must be a string")
+            raise RequestError(detail="Each scenario_id must be a string")
         if len(sid) > _MAX_ID_LEN:
-            raise HTTPException(status_code=400, detail="scenario_id too long")
+            raise RequestError(detail="scenario_id too long")
 
-    scenarios: list[ChaosScenario] = []
-    for sid in scenario_ids:
-        scenario = await store.get_scenario(sid)
-        if scenario is None:
-            raise HTTPException(status_code=404, detail=f"Scenario not found: {sid}")
-        scenarios.append(scenario)
-
-    from api_chaos_agent.models.report import ExecutionConfig
-    from api_chaos_agent.services.execution_engine import ExecutionEngine
-
-    config = ExecutionConfig(
+    service = ExecutionService(store=store)
+    result = await service.execute_scenarios(
+        scenario_ids=scenario_ids,
         base_url=base_url,
         concurrency=concurrency,
         timeout_seconds=timeout_seconds,
     )
-    engine = ExecutionEngine(config=config)
-    test_result = await engine.execute(scenarios)
-
-    execution_id = await store.save_execution(test_result)
-    return {"execution_id": execution_id, "status": "completed", "results": len(test_result.results)}
+    return result

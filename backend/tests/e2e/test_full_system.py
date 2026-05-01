@@ -413,7 +413,7 @@ class TestE2EHealthAndSystem:
         assert client.get("/health/live").status_code == 200
 
     def test_auth_endpoint(self, client):
-        resp = client.post("/auth/token", params={"username": "admin", "password": "admin"})
+        resp = client.post("/auth/token", data={"username": "admin", "password": "admin"})
         assert resp.status_code == 200
         assert "access_token" in resp.json()
 

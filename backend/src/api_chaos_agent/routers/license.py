@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
+
+from api_chaos_agent.core.exceptions import LicenseError as LicenseExc
 
 from api_chaos_agent.core.license import LicenseInfo, license_manager
 
@@ -18,7 +20,7 @@ async def install_license(key: str):
         info = license_manager.install_license(key)
         return info
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise LicenseExc(detail=str(e))
 
 
 @router.delete("/remove")

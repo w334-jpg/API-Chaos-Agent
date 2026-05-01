@@ -1,16 +1,21 @@
+"""Feature gating and plan-based access control.
+
+Provides decorators and utilities for restricting features based on
+tenant plan level (Free/Pro/Enterprise). Uses custom exceptions
+for consistent error response format.
+
+Licensed under the Business Source License 1.1 (BSL 1.1).
+See LICENSE.BSL for details. Change Date: 2029-04-30.
+Use of this file in production requires a valid commercial license
+unless your organization qualifies under the Additional Use Grant.
+"""
+
 from __future__ import annotations
-
-# Licensed under the Business Source License 1.1 (BSL 1.1)
-# See LICENSE.BSL for details. Change Date: 2029-04-30
-# Use of this file in production requires a valid commercial license
-# unless your organization qualifies under the Additional Use Grant.
-
 
 from functools import wraps
 from typing import Any, Callable
 
-from fastapi import HTTPException
-
+from api_chaos_agent.core.exceptions import AuthenticationError, SecurityError
 from api_chaos_agent.models.tenant import TenantPlan, TenantQuota, PRO_QUOTA, ENTERPRISE_QUOTA
 
 FEATURE_GATES: dict[str, dict[str, bool]] = {
@@ -63,13 +68,12 @@ def require_plan(*allowed_plans: TenantPlan):
                         tenant = arg
                         break
             if tenant is None:
-                raise HTTPException(status_code=401, detail="Tenant context required")
+                raise AuthenticationError(detail="Tenant context required")
             min_level = min(_PLAN_HIERARCHY.get(p, 0) for p in allowed_plans)
             tenant_level = _PLAN_HIERARCHY.get(tenant.plan, 0)
             if tenant_level < min_level:
                 allowed_names = ", ".join(p.value for p in allowed_plans)
-                raise HTTPException(
-                    status_code=403,
+                raise SecurityError(
                     detail=f"This feature requires {allowed_names} plan or above",
                 )
             return await func(*args, **kwargs)
@@ -88,10 +92,9 @@ def require_feature(feature: str):
                         tenant = arg
                         break
             if tenant is None:
-                raise HTTPException(status_code=401, detail="Tenant context required")
+                raise AuthenticationError(detail="Tenant context required")
             if not is_feature_available(tenant.plan, feature):
-                raise HTTPException(
-                    status_code=403,
+                raise SecurityError(
                     detail=f"Feature '{feature}' is not available on your current plan ({tenant.plan.value}). Please upgrade.",
                 )
             return await func(*args, **kwargs)

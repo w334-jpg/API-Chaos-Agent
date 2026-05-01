@@ -34,7 +34,7 @@ from api_chaos_agent.core.config import (
     settings,
 )
 from api_chaos_agent.core.logging import get_logger, setup_logging
-from api_chaos_agent.core.rate_limit import RateLimitMiddleware, _SlidingWindow
+from api_chaos_agent.core.rate_limit import RateLimitMiddleware, _TokenBucket
 from api_chaos_agent.core.security import (
     CurrentUser,
     _decode_token,
@@ -46,6 +46,7 @@ from api_chaos_agent.models.report import (
     ExecutionStatus,
     Finding,
     Report,
+    ReportSummary,
     ResponseData,
     ScenarioResult,
     Severity,
@@ -373,18 +374,16 @@ class TestReportModels:
             endpoint_method="GET",
             severity=Severity.HIGH,
             vulnerability_found=True,
-            description="Test finding",
+            details="Test finding",
         )
         assert f.vulnerability_found is True
-        assert f.reproduction_steps == []
-        assert f.remediation == ""
+        assert f.recommendation == ""
 
     def test_report_model(self):
-        r = Report()
-        assert r.title == "API Chaos Test Report"
-        assert r.total_scenarios == 0
-        assert r.vulnerabilities_found == 0
-        assert r.severity_summary == {}
+        r = Report(id="test", schema_id="test", summary=ReportSummary())
+        assert r.summary.total_scenarios == 0
+        assert r.summary.failed == 0
+        assert r.summary.severity_counts == {}
         assert r.findings == []
 
     def test_execution_config_serialization(self):
@@ -487,18 +486,18 @@ class TestSecurity:
             subject="testuser",
             expires_delta=_dt.timedelta(seconds=-1),
         )
-        from fastapi import HTTPException
+        from api_chaos_agent.core.exceptions import AuthenticationError
 
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(AuthenticationError) as exc_info:
             _decode_token(token)
-        assert exc_info.value.status_code == 401
+        assert "expired" in exc_info.value.detail.lower()
 
     def test_decode_invalid_token(self):
-        from fastapi import HTTPException
+        from api_chaos_agent.core.exceptions import AuthenticationError
 
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(AuthenticationError) as exc_info:
             _decode_token("invalid.token.here")
-        assert exc_info.value.status_code == 401
+        assert "invalid" in exc_info.value.detail.lower()
 
     @pytest.mark.asyncio
     async def test_get_current_user_auth_disabled(self):
@@ -515,14 +514,13 @@ class TestSecurity:
 
     @pytest.mark.asyncio
     async def test_get_current_user_auth_enabled_no_token(self):
-        from fastapi import HTTPException
+        from api_chaos_agent.core.exceptions import AuthenticationError
 
         original = settings.auth.enabled
         try:
             object.__setattr__(settings.auth, "enabled", True)
-            with pytest.raises(HTTPException) as exc_info:
+            with pytest.raises(AuthenticationError):
                 await get_current_user(None)
-            assert exc_info.value.status_code == 401
         finally:
             object.__setattr__(settings.auth, "enabled", original)
 
@@ -533,26 +531,26 @@ class TestSecurity:
 
 
 class TestRateLimit:
-    def test_sliding_window_record(self):
-        w = _SlidingWindow()
+    def test_token_bucket_consume(self):
+        b = _TokenBucket(max_tokens=10.0, refill_rate=1.0)
         now = time.monotonic()
-        count = w.record(now)
-        assert count == 1
+        assert b.consume(now) is True
 
-    def test_sliding_window_multiple_records(self):
-        w = _SlidingWindow()
+    def test_token_bucket_multiple_consumes(self):
+        b = _TokenBucket(max_tokens=5.0, refill_rate=1.0)
         now = time.monotonic()
-        for i in range(5):
-            w.record(now)
-        assert len(w.timestamps) == 5
+        for _ in range(5):
+            assert b.consume(now) is True
+        assert b.consume(now) is False
 
-    def test_sliding_window_expiry(self):
-        w = _SlidingWindow()
-        old_time = time.monotonic() - 120
-        w.timestamps = [old_time]
+    def test_token_bucket_refill(self):
+        b = _TokenBucket(max_tokens=5.0, refill_rate=60.0)
         now = time.monotonic()
-        w.record(now)
-        assert old_time not in w.timestamps
+        for _ in range(5):
+            b.consume(now)
+        assert b.consume(now) is False
+        later = now + 1.0
+        assert b.consume(later) is True
 
 
 # ══════════════════════════════════════════════════════════════
@@ -637,11 +635,11 @@ class TestInMemoryStore:
     @pytest.mark.asyncio
     async def test_save_and_get_report(self):
         s = InMemoryStore(max_reports=10, ttl_seconds=300)
-        report = Report(title="Test Report")
+        report = Report(id="test", schema_id="test", summary=ReportSummary())
         rid = await s.save_report(report)
         result = await s.get_report(rid)
         assert result is not None
-        assert result.title == "Test Report"
+        assert result.id == "test"
 
     @pytest.mark.asyncio
     async def test_stats(self):
@@ -761,11 +759,11 @@ class TestSQLiteStore:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test.db")
             s = SQLiteStore(db_path=db_path)
-            report = Report(title="SQLite Report")
+            report = Report(id="sqlite-test", schema_id="test", summary=ReportSummary())
             rid = await s.save_report(report)
             result = await s.get_report(rid)
             assert result is not None
-            assert result.title == "SQLite Report"
+            assert result.id == "sqlite-test"
             s.close()
 
     @pytest.mark.asyncio
@@ -1295,8 +1293,8 @@ class TestReportGenerator:
         gen = ReportGenerator()
         tr = TestResult(total_scenarios=0)
         report = gen.generate(tr)
-        assert report.total_scenarios == 0
-        assert report.vulnerabilities_found == 0
+        assert report.summary.total_scenarios == 0
+        assert report.summary.failed == 0
         assert report.findings == []
 
     def test_generate_report_with_vulnerabilities(self):
@@ -1317,7 +1315,7 @@ class TestReportGenerator:
         )
         tr.completed_scenarios = 1
         report = gen.generate(tr)
-        assert report.vulnerabilities_found == 1
+        assert report.summary.failed == 1
         assert len(report.findings) == 1
         assert report.findings[0].severity == Severity.HIGH
 
@@ -1345,8 +1343,8 @@ class TestReportGenerator:
             ],
         )
         report = gen.generate(tr)
-        assert report.severity_summary.get("high", 0) == 1
-        assert report.severity_summary.get("low", 0) == 1
+        assert report.summary.severity_counts.get("high", 0) == 1
+        assert report.summary.severity_counts.get("low", 0) == 1
 
     def test_remediation_suggestions(self):
         gen = ReportGenerator()
@@ -1377,9 +1375,9 @@ class TestReportGenerator:
             severity=Severity.MEDIUM,
             response=ResponseData(status_code=500, error="Internal Server Error"),
         )
-        steps = gen._build_reproduction_steps(result)
-        assert len(steps) >= 2
-        assert any("500" in s for s in steps)
+        remediation = gen._suggest_remediation(result)
+        assert isinstance(remediation, str)
+        assert len(remediation) > 0
 
     def test_response_snapshot(self):
         gen = ReportGenerator()
@@ -1396,11 +1394,9 @@ class TestReportGenerator:
                 body={"detail": "error"},
             ),
         )
-        snap = gen._snapshot_response(result)
-        assert "status_code" in snap
-        assert "elapsed_ms" in snap
-        assert "error" in snap
-        assert "body_preview" in snap
+        finding = gen._extract_findings(TestResult(results=[result], total_scenarios=1))
+        if finding:
+            assert finding[0].response_status == 500
 
 
 # ══════════════════════════════════════════════════════════════

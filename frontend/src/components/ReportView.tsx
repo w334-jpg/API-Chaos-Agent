@@ -19,17 +19,31 @@ function FindingRow({ finding }: { finding: ReportFinding }) {
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{finding.title}</span>
+            <span className="text-sm font-medium">{finding.scenario_name}</span>
             <SeverityBadge severity={finding.severity} />
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {finding.method} {finding.endpoint}
+            {finding.endpoint_method} {finding.endpoint_path}
           </p>
         </div>
       </button>
       {expanded && (
         <div className="space-y-3 border-t border-border bg-muted/20 px-4 py-3 pl-11">
-          <p className="text-sm text-muted-foreground">{finding.description}</p>
+          {finding.vulnerability_found && (
+            <p className="text-sm font-medium text-red-400">Vulnerability confirmed</p>
+          )}
+          {finding.expected_behavior && (
+            <div>
+              <p className="mb-1 text-xs font-medium text-muted-foreground">Expected</p>
+              <p className="text-sm text-muted-foreground">{finding.expected_behavior}</p>
+            </div>
+          )}
+          {finding.actual_behavior && (
+            <div>
+              <p className="mb-1 text-xs font-medium text-muted-foreground">Actual</p>
+              <p className="text-sm text-muted-foreground">{finding.actual_behavior}</p>
+            </div>
+          )}
           {finding.details && (
             <div>
               <p className="mb-1 text-xs font-medium text-muted-foreground">Details</p>
@@ -53,7 +67,7 @@ interface ReportViewProps {
 }
 
 export default function ReportView({ report }: ReportViewProps) {
-  const severityOrder: Array<keyof typeof report.summary.severity_breakdown> = [
+  const severityOrder: Array<keyof typeof report.summary.severity_counts> = [
     "critical", "high", "medium", "low", "info",
   ]
 
@@ -80,7 +94,7 @@ export default function ReportView({ report }: ReportViewProps) {
         {/* Severity Breakdown */}
         <div className="mt-4 flex flex-wrap gap-2">
           {severityOrder.map((sev) => {
-            const count = report.summary.severity_breakdown[sev]
+            const count = report.summary.severity_counts[sev]
             if (!count) return null
             return (
               <div key={sev} className="flex items-center gap-1.5">
@@ -107,7 +121,7 @@ export default function ReportView({ report }: ReportViewProps) {
         ) : (
           <div>
             {report.findings.map((f) => (
-              <FindingRow key={f.id} finding={f} />
+              <FindingRow key={f.scenario_id} finding={f} />
             ))}
           </div>
         )}

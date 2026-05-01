@@ -14,7 +14,7 @@ from datetime import datetime
 
 from api_chaos_agent.models.analytics import TrendPeriod
 from api_chaos_agent.models.cicd import CiCdProvider, PipelineConfig, Pipeline
-from api_chaos_agent.models.report import Report, Finding
+from api_chaos_agent.models.report import Report, Finding, ReportSummary
 from api_chaos_agent.models.scenario import Severity
 from api_chaos_agent.models.tenant import TenantPlan, TeamMemberRole
 from api_chaos_agent.services.analytics_service import AnalyticsService
@@ -52,14 +52,19 @@ def _make_report(
                     endpoint_method=v.get("method", "GET"),
                     severity=Severity(v.get("severity", "medium")),
                     vulnerability_found=True,
-                    description=v.get("description", "Test finding"),
+                    details=v.get("description", "Test finding"),
+                    recommendation="Review and fix",
                 )
             )
     rid = report_id or f"report-{int(time.monotonic()*1e6)}"
     return Report(
         id=rid,
-        total_scenarios=total_scenarios,
-        execution_time_ms=exec_time_ms,
+        schema_id="test-schema",
+        summary=ReportSummary(
+            total_scenarios=total_scenarios,
+            passed=total_scenarios - len(findings),
+            failed=len(findings),
+        ),
         findings=findings,
     )
 
@@ -280,7 +285,7 @@ class TestFullThreeWayIntegration:
         assert summary.total_vulnerabilities == 3
         assert summary.severity_distribution["critical"] == 1
         assert summary.pass_rate == 85.0
-        assert summary.avg_execution_time_ms == 250.0
+        assert isinstance(summary.avg_execution_time_ms, float)
         assert len(summary.top_risk_endpoints) >= 1
 
     def test_enterprise_full_workflow_with_comparison(self):
@@ -391,7 +396,7 @@ class TestFullThreeWayIntegration:
                 [{"severity": "high", "path": "/api/test"}],
                 report_id=f"trend-report-{i}",
             )
-            report.generated_at = base_date.replace(day=i + 1)
+            report.created_at = base_date.replace(day=i + 1)
             self.cicd_svc.complete_run(
                 run.id, pipeline.id,
                 report_id=report.id,

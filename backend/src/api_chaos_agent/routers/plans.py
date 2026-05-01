@@ -6,7 +6,9 @@ from __future__ import annotations
 # unless your organization qualifies under the Additional Use Grant.
 
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
+
+from api_chaos_agent.core.exceptions import RequestError, SchemaError
 
 from api_chaos_agent.core.feature_gates import (
     FEATURE_GATES,
@@ -26,7 +28,7 @@ async def list_features(plan: str = "free"):
     try:
         tenant_plan = TenantPlan(plan)
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"Invalid plan: {plan}")
+        raise RequestError(detail=f"Invalid plan: {plan}")
     return {
         "plan": plan,
         "features": get_features_for_plan(tenant_plan),
@@ -50,7 +52,7 @@ async def check_feature(feature: str, plan: str = "free"):
     try:
         tenant_plan = TenantPlan(plan)
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"Invalid plan: {plan}")
+        raise RequestError(detail=f"Invalid plan: {plan}")
     return {
         "feature": feature,
         "plan": plan,
@@ -63,7 +65,7 @@ async def check_quota_endpoint(resource: str, current_usage: int, plan: str = "f
     try:
         tenant_plan = TenantPlan(plan)
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"Invalid plan: {plan}")
+        raise RequestError(detail=f"Invalid plan: {plan}")
     return {
         "resource": resource,
         "plan": plan,

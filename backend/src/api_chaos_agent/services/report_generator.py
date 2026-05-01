@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+import uuid
 
 from api_chaos_agent.models.report import (
     Finding,
     Report,
+    ReportSummary,
     ScenarioResult,
     Severity,
     TestResult,
@@ -27,18 +29,40 @@ _SEVERITY_ORDER: dict[str, int] = {
 class ReportGenerator:
     """Generate structured reports from chaos test results."""
 
-    def generate(self, test_result: TestResult) -> Report:
+    def generate(self, test_result: TestResult, schema_id: str = "", tenant_id: str = "") -> Report:
         findings = self._extract_findings(test_result)
-        severity_summary = self._summarize_severities(findings)
+        summary = self._build_summary(test_result, findings)
 
         return Report(
-            title=f"API Chaos Test Report — {test_result.started_at.isoformat()}",
-            generated_at=datetime.now(),
-            total_scenarios=test_result.total_scenarios,
-            vulnerabilities_found=sum(1 for f in findings if f.vulnerability_found),
-            severity_summary=severity_summary,
+            id=str(uuid.uuid4()),
+            schema_id=schema_id,
+            created_at=datetime.now(),
+            summary=summary,
             findings=findings,
             test_result=test_result,
+            tenant_id=tenant_id,
+        )
+
+    def _build_summary(self, test_result: TestResult, findings: list[Finding]) -> ReportSummary:
+        severity_counts: dict[str, int] = {}
+        for f in findings:
+            key = f.severity.value
+            severity_counts[key] = severity_counts.get(key, 0) + 1
+
+        total = test_result.total_scenarios or len(test_result.results)
+        passed = sum(1 for r in test_result.results if not r.vulnerability_found)
+        failed = sum(1 for r in test_result.results if r.vulnerability_found)
+        errors = sum(1 for r in test_result.results if r.status.value == "failed")
+        vuln_rate = (failed / total * 100) if total > 0 else 0.0
+
+        return ReportSummary(
+            total_endpoints=0,
+            total_scenarios=total,
+            passed=passed,
+            failed=failed,
+            errors=errors,
+            severity_counts=severity_counts,
+            vulnerability_rate=round(vuln_rate, 2),
         )
 
     def _extract_findings(self, test_result: TestResult) -> list[Finding]:
@@ -54,29 +78,15 @@ class ReportGenerator:
                     endpoint_method="",
                     severity=result.severity,
                     vulnerability_found=True,
-                    description=result.details or f"Vulnerability found in {result.scenario_name}",
-                    reproduction_steps=self._build_reproduction_steps(result),
-                    remediation=self._suggest_remediation(result),
-                    response_snapshot=self._snapshot_response(result),
+                    details=result.details or f"Vulnerability found in {result.scenario_name}",
+                    recommendation=self._suggest_remediation(result),
+                    response_status=result.response.status_code,
+                    expected_behavior="",
+                    actual_behavior=result.response.error or "",
                 )
                 findings.append(finding)
 
         return sorted(findings, key=lambda f: _SEVERITY_ORDER.get(f.severity.value, 99))
-
-    def _summarize_severities(self, findings: list[Finding]) -> dict[str, int]:
-        summary: dict[str, int] = {}
-        for finding in findings:
-            key = finding.severity.value
-            summary[key] = summary.get(key, 0) + 1
-        return summary
-
-    def _build_reproduction_steps(self, result: ScenarioResult) -> list[str]:
-        steps = [f"Execute scenario: {result.scenario_name}"]
-        if result.response.status_code:
-            steps.append(f"Observe status code: {result.response.status_code}")
-        if result.response.error:
-            steps.append(f"Observe error: {result.response.error}")
-        return steps
 
     def _suggest_remediation(self, result: ScenarioResult) -> str:
         try:
@@ -93,19 +103,3 @@ class ReportGenerator:
         if st == ChaosScenarioType.RATE_LIMIT:
             return "Implement rate limiting to prevent abuse and ensure fair resource allocation."
         return "Review and fix the identified issue."
-
-    def _snapshot_response(self, result: ScenarioResult) -> dict[str, Any]:
-        snap: dict[str, Any] = {}
-        if result.response.status_code is not None:
-            snap["status_code"] = result.response.status_code
-        if result.response.elapsed_ms:
-            snap["elapsed_ms"] = result.response.elapsed_ms
-        if result.response.error:
-            snap["error"] = result.response.error
-        if result.response.body is not None:
-            body = result.response.body
-            if isinstance(body, (dict, list)):
-                snap["body_preview"] = str(body)[:500]
-            elif isinstance(body, str):
-                snap["body_preview"] = body[:500]
-        return snap

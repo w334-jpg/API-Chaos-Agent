@@ -2,6 +2,7 @@
 
 Drop-in replacement for InMemoryStore that persists data to a SQLite database.
 Supports the same async interface with automatic serialization/deserialization.
+Implements the StoreProtocol for interface consistency.
 """
 
 from __future__ import annotations
@@ -23,11 +24,12 @@ class SQLiteStore:
     """Persistent store backed by SQLite.
 
     Features:
-    - Full async interface matching InMemoryStore
+    - Full async interface matching InMemoryStore (StoreProtocol)
     - Automatic JSON serialization/deserialization of Pydantic models
     - Configurable database path
     - Thread-safe via asyncio.Lock
     - Automatic table creation on init
+    - Pagination support (offset/limit) matching InMemoryStore
     """
 
     def __init__(self, db_path: str | None = None) -> None:
@@ -85,6 +87,13 @@ class SQLiteStore:
         cursor = self._conn.execute(f"SELECT id, data FROM {table}")
         return {row[0]: row[1] for row in cursor.fetchall()}
 
+    def _list_paginated(self, table: str, offset: int = 0, limit: int = 100) -> dict[str, str]:
+        cursor = self._conn.execute(
+            f"SELECT id, data FROM {table} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            (limit, offset),
+        )
+        return {row[0]: row[1] for row in cursor.fetchall()}
+
     async def save_schema(self, spec: APISpec) -> str:
         async with self._lock:
             schema_id = str(uuid.uuid4())
@@ -97,8 +106,8 @@ class SQLiteStore:
             return None
         return APISpec.model_validate_json(data)
 
-    async def list_schemas(self) -> dict[str, APISpec]:
-        raw = self._list("schemas")
+    async def list_schemas(self, offset: int = 0, limit: int = 100) -> dict[str, APISpec]:
+        raw = self._list_paginated("schemas", offset, limit)
         return {k: APISpec.model_validate_json(v) for k, v in raw.items()}
 
     async def save_scenario(self, scenario: ChaosScenario) -> str:
@@ -114,8 +123,8 @@ class SQLiteStore:
             return None
         return ChaosScenario.model_validate_json(data)
 
-    async def list_scenarios(self) -> dict[str, ChaosScenario]:
-        raw = self._list("scenarios")
+    async def list_scenarios(self, offset: int = 0, limit: int = 100) -> dict[str, ChaosScenario]:
+        raw = self._list_paginated("scenarios", offset, limit)
         return {k: ChaosScenario.model_validate_json(v) for k, v in raw.items()}
 
     async def save_execution(self, result: TestResult) -> str:
@@ -131,8 +140,8 @@ class SQLiteStore:
             return None
         return TestResult.model_validate_json(data)
 
-    async def list_executions(self) -> dict[str, TestResult]:
-        raw = self._list("executions")
+    async def list_executions(self, offset: int = 0, limit: int = 100) -> dict[str, TestResult]:
+        raw = self._list_paginated("executions", offset, limit)
         return {k: TestResult.model_validate_json(v) for k, v in raw.items()}
 
     async def save_report(self, report: Report) -> str:
@@ -148,8 +157,8 @@ class SQLiteStore:
             return None
         return Report.model_validate_json(data)
 
-    async def list_reports(self) -> dict[str, Report]:
-        raw = self._list("reports")
+    async def list_reports(self, offset: int = 0, limit: int = 100) -> dict[str, Report]:
+        raw = self._list_paginated("reports", offset, limit)
         return {k: Report.model_validate_json(v) for k, v in raw.items()}
 
     async def clear(self) -> None:
@@ -157,6 +166,35 @@ class SQLiteStore:
             for table in ("schemas", "scenarios", "executions", "reports"):
                 self._conn.execute(f"DELETE FROM {table}")
             self._conn.commit()
+
+    def clear_sync(self) -> None:
+        for table in ("schemas", "scenarios", "executions", "reports"):
+            self._conn.execute(f"DELETE FROM {table}")
+        self._conn.commit()
+
+    async def iter_schemas(self):
+        async with self._lock:
+            cursor = self._conn.execute("SELECT id, data FROM schemas")
+            for row in cursor.fetchall():
+                yield row[0], APISpec.model_validate_json(row[1])
+
+    async def iter_scenarios(self):
+        async with self._lock:
+            cursor = self._conn.execute("SELECT id, data FROM scenarios")
+            for row in cursor.fetchall():
+                yield row[0], ChaosScenario.model_validate_json(row[1])
+
+    async def iter_executions(self):
+        async with self._lock:
+            cursor = self._conn.execute("SELECT id, data FROM executions")
+            for row in cursor.fetchall():
+                yield row[0], TestResult.model_validate_json(row[1])
+
+    async def iter_reports(self):
+        async with self._lock:
+            cursor = self._conn.execute("SELECT id, data FROM reports")
+            for row in cursor.fetchall():
+                yield row[0], Report.model_validate_json(row[1])
 
     async def stats(self) -> dict[str, int]:
         result: dict[str, int] = {}

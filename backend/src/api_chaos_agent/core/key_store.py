@@ -4,7 +4,7 @@ Supports:
 - macOS: Keychain (via keyring)
 - Windows: Credential Manager (via keyring)
 - Linux: Secret Service / D-Bus (via keyring)
-- Fallback: Encrypted file-based storage
+- Fallback: Fernet-encrypted file-based storage
 
 This module provides a unified interface for storing and retrieving
 sensitive credentials like API keys without hardcoding them.
@@ -30,23 +30,43 @@ try:
 except ImportError:
     pass
 
+_FERNET_AVAILABLE = False
+try:
+    from cryptography.fernet import Fernet
+    _FERNET_AVAILABLE = True
+except ImportError:
+    pass
+
 _SERVICE_NAME = "api-chaos-agent"
+
+
+def _derive_fernet_key(secret: bytes) -> bytes:
+    return base64.urlsafe_b64encode(hashlib.sha256(secret).digest())
 
 
 class SecureKeyStore:
     """Store and retrieve sensitive credentials using OS-native keychain.
 
     Uses the `keyring` library when available for OS-native credential
-    management. Falls back to an encrypted file-based store when keyring
-    is not installed.
+    management. Falls back to Fernet-encrypted file-based store when
+    keyring is not installed. If cryptography is also unavailable,
+    uses HMAC-based obfuscation as last resort (with a warning).
     """
 
     def __init__(self, fallback_dir: str | None = None) -> None:
         self._use_keyring = _KEYRING_AVAILABLE
+        self._use_fernet = _FERNET_AVAILABLE
         self._fallback_dir = Path(fallback_dir or os.path.expanduser("~/.api-chaos-agent/keys"))
         if not self._use_keyring:
             self._fallback_dir.mkdir(parents=True, exist_ok=True)
-            logger.info("keyring not available, using file-based key store at %s", self._fallback_dir)
+            if self._use_fernet:
+                logger.info("keyring not available, using Fernet-encrypted file store at %s", self._fallback_dir)
+            else:
+                logger.warning(
+                    "keyring and cryptography not available, using obfuscated file store at %s — "
+                    "install 'cryptography' package for proper encryption",
+                    self._fallback_dir,
+                )
 
     def get(self, key: str) -> str | None:
         if self._use_keyring:
@@ -104,11 +124,11 @@ class SecureKeyStore:
         safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in key)
         return f"{safe}_{h}.enc"
 
-    def _get_obfuscation_key(self) -> bytes:
+    def _get_encryption_key(self) -> bytes:
         machine_id = os.environ.get("API_CHAOS_AGENT_MACHINE_ID", "")
         if not machine_id:
             machine_id = str(os.getuid()) if hasattr(os, "getuid") else os.environ.get("USER", "default")
-        return hashlib.sha256(f"{_SERVICE_NAME}:{machine_id}".encode()).digest()
+        return _derive_fernet_key(f"{_SERVICE_NAME}:{machine_id}".encode())
 
     def _get_from_file(self, key: str) -> str | None:
         filepath = self._fallback_dir / self._key_to_filename(key)
@@ -116,10 +136,15 @@ class SecureKeyStore:
             return None
         try:
             data = filepath.read_bytes()
-            obf_key = self._get_obfuscation_key()
-            decoded = base64.b64decode(data)
-            xored = bytes(b ^ obf_key[i % len(obf_key)] for i, b in enumerate(decoded))
-            entry = json.loads(xored.decode("utf-8"))
+            if self._use_fernet:
+                f = Fernet(self._get_encryption_key())
+                decrypted = f.decrypt(data)
+                entry = json.loads(decrypted.decode("utf-8"))
+            else:
+                decoded = base64.b64decode(data)
+                obf_key = self._get_obfuscation_key()
+                xored = bytes(b ^ obf_key[i % len(obf_key)] for i, b in enumerate(decoded))
+                entry = json.loads(xored.decode("utf-8"))
             return entry.get("value")
         except Exception as exc:
             logger.warning("Failed to read key '%s' from file store: %s", key, exc)
@@ -129,9 +154,13 @@ class SecureKeyStore:
         filepath = self._fallback_dir / self._key_to_filename(key)
         try:
             entry = json.dumps({"key": key, "value": value}).encode("utf-8")
-            obf_key = self._get_obfuscation_key()
-            xored = bytes(b ^ obf_key[i % len(obf_key)] for i, b in enumerate(entry))
-            filepath.write_bytes(base64.b64encode(xored))
+            if self._use_fernet:
+                f = Fernet(self._get_encryption_key())
+                filepath.write_bytes(f.encrypt(entry))
+            else:
+                obf_key = self._get_obfuscation_key()
+                xored = bytes(b ^ obf_key[i % len(obf_key)] for i, b in enumerate(entry))
+                filepath.write_bytes(base64.b64encode(xored))
         except Exception as exc:
             logger.warning("Failed to write key '%s' to file store: %s", key, exc)
 
@@ -147,15 +176,26 @@ class SecureKeyStore:
         for filepath in self._fallback_dir.glob("*.enc"):
             try:
                 data = filepath.read_bytes()
-                obf_key = self._get_obfuscation_key()
-                decoded = base64.b64decode(data)
-                xored = bytes(b ^ obf_key[i % len(obf_key)] for i, b in enumerate(decoded))
-                entry = json.loads(xored.decode("utf-8"))
+                if self._use_fernet:
+                    f = Fernet(self._get_encryption_key())
+                    decrypted = f.decrypt(data)
+                    entry = json.loads(decrypted.decode("utf-8"))
+                else:
+                    decoded = base64.b64decode(data)
+                    obf_key = self._get_obfuscation_key()
+                    xored = bytes(b ^ obf_key[i % len(obf_key)] for i, b in enumerate(decoded))
+                    entry = json.loads(xored.decode("utf-8"))
                 if "key" in entry:
                     keys.append(entry["key"])
             except Exception:
                 pass
         return keys
+
+    def _get_obfuscation_key(self) -> bytes:
+        machine_id = os.environ.get("API_CHAOS_AGENT_MACHINE_ID", "")
+        if not machine_id:
+            machine_id = str(os.getuid()) if hasattr(os, "getuid") else os.environ.get("USER", "default")
+        return hashlib.sha256(f"{_SERVICE_NAME}:{machine_id}".encode()).digest()
 
 
 secure_key_store = SecureKeyStore()

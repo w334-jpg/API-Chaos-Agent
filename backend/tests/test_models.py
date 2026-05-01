@@ -29,6 +29,7 @@ from api_chaos_agent.models.report import (
     ExecutionStatus,
     Finding,
     Report,
+    ReportSummary,
     ResponseData,
     ScenarioResult,
     TestResult,
@@ -218,34 +219,32 @@ class TestReportModels:
             scenario_id="s1", scenario_name="Test", scenario_type="latency",
             endpoint_path="/test", endpoint_method="GET",
             severity=Severity.HIGH, vulnerability_found=True,
-            description="Test finding",
+            details="Test finding",
         )
-        assert f.reproduction_steps == []
-        assert f.remediation == ""
+        assert f.recommendation == ""
 
     def test_report_model(self):
-        r = Report(title="Test Report")
-        assert r.total_scenarios == 0
-        assert r.vulnerabilities_found == 0
-        assert r.severity_summary == {}
+        r = Report(id="test", schema_id="test", summary=ReportSummary())
+        assert r.summary.total_scenarios == 0
+        assert r.summary.failed == 0
+        assert r.summary.severity_counts == {}
         assert r.findings == []
 
     def test_report_with_findings(self):
         r = Report(
-            title="Full Report",
-            total_scenarios=10,
-            vulnerabilities_found=3,
-            severity_summary={"high": 1, "medium": 2},
+            id="full-report",
+            schema_id="test",
+            summary=ReportSummary(total_scenarios=10, failed=1, severity_counts={"high": 1}),
             findings=[
                 Finding(
                     scenario_id="s1", scenario_name="F1", scenario_type="latency",
                     endpoint_path="/a", endpoint_method="GET",
-                    severity=Severity.HIGH, vulnerability_found=True, description="D1",
+                    severity=Severity.HIGH, vulnerability_found=True, details="D1",
                 ),
             ],
         )
         assert len(r.findings) == 1
-        assert r.severity_summary["high"] == 1
+        assert r.summary.severity_counts["high"] == 1
 
     def test_models_serialize_to_dict(self):
         ep = Endpoint(path="/test", method=HttpMethod.GET)

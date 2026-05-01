@@ -10,6 +10,7 @@ from api_chaos_agent.models.report import (
     ExecutionStatus,
     Finding,
     Report,
+    ReportSummary,
     ScenarioResult,
     TestResult,
 )
@@ -31,24 +32,26 @@ def sample_report():
     result.completed_scenarios = 3
 
     report = Report(
-        title="Test Report",
-        total_scenarios=3,
-        vulnerabilities_found=2,
-        severity_summary={"critical": 1, "high": 1, "medium": 0, "low": 0},
+        id="test-report-1",
+        schema_id="test-schema",
+        summary=ReportSummary(
+            total_scenarios=3,
+            passed=1,
+            failed=2,
+            severity_counts={"critical": 1, "high": 1, "medium": 0, "low": 0},
+        ),
         findings=[
             Finding(
                 scenario_id="s1", scenario_name="SQL Injection", scenario_type="request_tampering",
                 endpoint_path="/users", endpoint_method="POST", severity=Severity.CRITICAL,
-                vulnerability_found=True, description="SQL injection vulnerability detected",
-                reproduction_steps=["Send POST with SQL payload", "Observe unfiltered response"],
-                remediation="Use parameterized queries",
+                vulnerability_found=True, details="SQL injection vulnerability detected",
+                recommendation="Use parameterized queries",
             ),
             Finding(
                 scenario_id="s2", scenario_name="Rate Limit Bypass", scenario_type="rate_limit",
                 endpoint_path="/api/data", endpoint_method="GET", severity=Severity.HIGH,
-                vulnerability_found=True, description="Rate limiting not enforced",
-                reproduction_steps=["Send 1000 requests rapidly", "Observe no 429 response"],
-                remediation="Implement proper rate limiting middleware",
+                vulnerability_found=True, details="Rate limiting not enforced",
+                recommendation="Implement proper rate limiting middleware",
             ),
         ],
         test_result=result,
@@ -61,7 +64,7 @@ class TestReportExporterHTML:
         exporter = ReportExporter()
         html = exporter.export_html(sample_report)
         assert "<!DOCTYPE html>" in html
-        assert "Test Report" in html
+        assert "API Chaos Test Report" in html
         assert len(html) > 100
 
     def test_export_html_contains_findings(self, sample_report):
@@ -86,7 +89,8 @@ class TestReportExporterJSON:
         json_str = exporter.export_json(sample_report)
         data = json.loads(json_str)
         assert "findings" in data
-        assert data["total_scenarios"] == 3
+        assert "summary" in data
+        assert data["summary"]["total_scenarios"] == 3
 
     def test_export_json_findings(self, sample_report):
         exporter = ReportExporter()
@@ -122,21 +126,21 @@ class TestReportExporterCSV:
 
 class TestReportExporterEmpty:
     def test_export_html_no_findings(self):
-        report = Report(title="Empty Report", total_scenarios=0, vulnerabilities_found=0, findings=[])
+        report = Report(id="empty-report", schema_id="test", summary=ReportSummary(total_scenarios=0), findings=[])
         exporter = ReportExporter()
         html = exporter.export_html(report)
         assert "<!DOCTYPE html>" in html
         assert "No vulnerabilities found" in html
 
     def test_export_json_empty(self):
-        report = Report(title="Empty", total_scenarios=0, vulnerabilities_found=0, findings=[])
+        report = Report(id="empty-report", schema_id="test", summary=ReportSummary(total_scenarios=0), findings=[])
         exporter = ReportExporter()
         json_str = exporter.export_json(report)
         data = json.loads(json_str)
         assert data["findings"] == []
 
     def test_export_csv_empty(self):
-        report = Report(title="Empty", total_scenarios=0, vulnerabilities_found=0, findings=[])
+        report = Report(id="empty-report", schema_id="test", summary=ReportSummary(total_scenarios=0), findings=[])
         exporter = ReportExporter()
         csv_str = exporter.export_csv(report)
         assert "scenario_id" in csv_str

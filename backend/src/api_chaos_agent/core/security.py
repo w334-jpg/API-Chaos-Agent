@@ -1,7 +1,8 @@
 """JWT authentication utilities.
 
 Provides token creation, verification, and FastAPI dependency injection
-for protecting API endpoints.
+for protecting API endpoints. Uses custom AuthenticationError for
+consistent error response format across the application.
 """
 
 from __future__ import annotations
@@ -10,10 +11,11 @@ import datetime as _dt
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from api_chaos_agent.core.config import settings
+from api_chaos_agent.core.exceptions import AuthenticationError
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -30,9 +32,9 @@ def _decode_token(token: str) -> dict:
     try:
         return jwt.decode(token, settings.auth.secret_key, algorithms=[settings.auth.algorithm])
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token expired")
+        raise AuthenticationError(detail="Token expired")
     except jwt.InvalidTokenError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        raise AuthenticationError(detail="Invalid token")
 
 
 async def get_current_user(
@@ -41,7 +43,7 @@ async def get_current_user(
     if not settings.auth.enabled:
         return {"sub": "anonymous"}
     if credentials is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        raise AuthenticationError(detail="Not authenticated")
     return _decode_token(credentials.credentials)
 
 

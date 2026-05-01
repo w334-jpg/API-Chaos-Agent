@@ -117,8 +117,9 @@ class InMemoryStore:
     async def get_schema(self, schema_id: str) -> APISpec | None:
         return self._schemas.get(schema_id)
 
-    async def list_schemas(self) -> dict[str, APISpec]:
-        return dict(self._schemas)
+    async def list_schemas(self, offset: int = 0, limit: int = 100) -> dict[str, APISpec]:
+        items = list(self._schemas.items())
+        return dict(items[offset : offset + limit])
 
     async def save_scenario(self, scenario: ChaosScenario) -> str:
         async with self._lock:
@@ -130,8 +131,9 @@ class InMemoryStore:
     async def get_scenario(self, scenario_id: str) -> ChaosScenario | None:
         return self._scenarios.get(scenario_id)
 
-    async def list_scenarios(self) -> dict[str, ChaosScenario]:
-        return dict(self._scenarios)
+    async def list_scenarios(self, offset: int = 0, limit: int = 100) -> dict[str, ChaosScenario]:
+        items = list(self._scenarios.items())
+        return dict(items[offset : offset + limit])
 
     async def save_execution(self, result: TestResult) -> str:
         async with self._lock:
@@ -143,8 +145,9 @@ class InMemoryStore:
     async def get_execution(self, execution_id: str) -> TestResult | None:
         return self._executions.get(execution_id)
 
-    async def list_executions(self) -> dict[str, TestResult]:
-        return dict(self._executions)
+    async def list_executions(self, offset: int = 0, limit: int = 100) -> dict[str, TestResult]:
+        items = list(self._executions.items())
+        return dict(items[offset : offset + limit])
 
     async def save_report(self, report: Report) -> str:
         async with self._lock:
@@ -156,8 +159,9 @@ class InMemoryStore:
     async def get_report(self, report_id: str) -> Report | None:
         return self._reports.get(report_id)
 
-    async def list_reports(self) -> dict[str, Report]:
-        return dict(self._reports)
+    async def list_reports(self, offset: int = 0, limit: int = 100) -> dict[str, Report]:
+        items = list(self._reports.items())
+        return dict(items[offset : offset + limit])
 
     async def clear(self) -> None:
         async with self._lock:
@@ -171,6 +175,26 @@ class InMemoryStore:
         self._scenarios.clear()
         self._executions.clear()
         self._reports.clear()
+
+    async def iter_schemas(self):
+        async with self._lock:
+            for key, value in list(self._schemas.items()):
+                yield key, value
+
+    async def iter_scenarios(self):
+        async with self._lock:
+            for key, value in list(self._scenarios.items()):
+                yield key, value
+
+    async def iter_executions(self):
+        async with self._lock:
+            for key, value in list(self._executions.items()):
+                yield key, value
+
+    async def iter_reports(self):
+        async with self._lock:
+            for key, value in list(self._reports.items()):
+                yield key, value
 
     async def stats(self) -> dict[str, int]:
         return {
@@ -201,6 +225,10 @@ class _StoreProxy:
 
     Respects ``settings.store.backend`` at runtime instead of import time,
     so the correct backend (memory / SQLite) is always selected.
+
+    Uses ``__getattr__`` to transparently delegate all method calls to the
+    underlying store instance, eliminating the need to manually proxy each
+    new method (DRY principle).
     """
 
     def __init__(self) -> None:
@@ -211,55 +239,18 @@ class _StoreProxy:
             self._real = create_store()
         return self._real
 
-    async def save_schema(self, spec: APISpec) -> str:
-        return await self._ensure().save_schema(spec)
-
-    async def get_schema(self, schema_id: str) -> APISpec | None:
-        return await self._ensure().get_schema(schema_id)
-
-    async def list_schemas(self) -> dict[str, APISpec]:
-        return await self._ensure().list_schemas()
-
-    async def save_scenario(self, scenario: ChaosScenario) -> str:
-        return await self._ensure().save_scenario(scenario)
-
-    async def get_scenario(self, scenario_id: str) -> ChaosScenario | None:
-        return await self._ensure().get_scenario(scenario_id)
-
-    async def list_scenarios(self) -> dict[str, ChaosScenario]:
-        return await self._ensure().list_scenarios()
-
-    async def save_execution(self, result: TestResult) -> str:
-        return await self._ensure().save_execution(result)
-
-    async def get_execution(self, execution_id: str) -> TestResult | None:
-        return await self._ensure().get_execution(execution_id)
-
-    async def list_executions(self) -> dict[str, TestResult]:
-        return await self._ensure().list_executions()
-
-    async def save_report(self, report: Report) -> str:
-        return await self._ensure().save_report(report)
-
-    async def get_report(self, report_id: str) -> Report | None:
-        return await self._ensure().get_report(report_id)
-
-    async def list_reports(self) -> dict[str, Report]:
-        return await self._ensure().list_reports()
+    def __getattr__(self, name: str) -> Any:
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return getattr(self._ensure(), name)
 
     async def clear(self) -> None:
         await self._ensure().clear()
 
     def clear_sync(self) -> None:
         if self._real is not None:
-            self._real._schemas.clear()
-            self._real._scenarios.clear()
-            self._real._executions.clear()
-            self._real._reports.clear()
+            self._real.clear_sync()
         self._real = None
-
-    async def stats(self) -> dict[str, int]:
-        return await self._ensure().stats()
 
 
 store = _StoreProxy()

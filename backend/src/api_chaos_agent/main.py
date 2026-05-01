@@ -19,13 +19,17 @@ import time
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.security import OAuth2PasswordRequestForm
+from typing import Annotated
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
 
+from api_chaos_agent.core.api_versioning import APIVersionMiddleware
 from api_chaos_agent.core.config import settings
+from api_chaos_agent.core.error_handlers import register_exception_handlers
 from api_chaos_agent.core.logging import setup_logging, get_logger
 from api_chaos_agent.core.rate_limit import RateLimitMiddleware
 from api_chaos_agent.core.security import create_access_token
@@ -62,6 +66,20 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Cache-Control"] = "no-store"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "font-src 'self'; "
+            "connect-src 'self' ws: wss:; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
+        )
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=(), payment=()"
+        )
         return response
 
 
@@ -83,10 +101,31 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     setup_logging()
+    _validate_security_config()
     logger.info("application_starting", host=settings.server.host, port=settings.server.port)
     yield
     await store.clear()
     logger.info("application_stopped")
+
+
+def _validate_security_config() -> None:
+    if settings.auth.enabled:
+        if settings.auth.is_insecure_key:
+            raise RuntimeError(
+                "FATAL: AUTH_SECRET_KEY is not set or uses an insecure default. "
+                "Set a strong secret via the AUTH_SECRET_KEY environment variable "
+                "before enabling authentication in production."
+            )
+        if not settings.auth.admin_username or not settings.auth.admin_password:
+            raise RuntimeError(
+                "FATAL: AUTH_ADMIN_USERNAME and AUTH_ADMIN_PASSWORD must be set "
+                "when authentication is enabled. Configure them via environment variables."
+            )
+        if len(settings.auth.secret_key) < 32:
+            logger.warning(
+                "auth_secret_key_short",
+                hint="AUTH_SECRET_KEY should be at least 32 characters for adequate security",
+            )
 
 
 app = FastAPI(
@@ -105,6 +144,7 @@ app.add_middleware(
 )
 
 app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(APIVersionMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestSizeLimitMiddleware)
 app.add_middleware(RateLimitMiddleware)
@@ -122,8 +162,24 @@ app.include_router(analytics.router)
 app.include_router(plans.router)
 app.include_router(license_router.router)
 
+register_exception_handlers(app)
+
 
 _ws_connections: list[WebSocket] = []
+_ws_lock = asyncio.Lock()
+
+
+async def _ws_add(websocket: WebSocket) -> None:
+    async with _ws_lock:
+        _ws_connections.append(websocket)
+
+
+async def _ws_remove(websocket: WebSocket) -> None:
+    async with _ws_lock:
+        try:
+            _ws_connections.remove(websocket)
+        except ValueError:
+            pass
 
 
 @app.get("/health", tags=["health"])
@@ -161,20 +217,26 @@ async def liveness_check() -> dict:
 
 
 @app.post("/auth/token", tags=["auth"])
-async def login(username: str, password: str) -> dict:
+async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> dict:
     if not settings.auth.enabled:
         return {"access_token": "disabled", "token_type": "bearer"}
-    if username == "admin" and password == "admin":
-        token = create_access_token(subject=username)
+    if (
+        form_data.username == settings.auth.admin_username
+        and form_data.password == settings.auth.admin_password
+    ):
+        token = create_access_token(subject=form_data.username)
         return {"access_token": token, "token_type": "bearer"}
-    from fastapi import HTTPException
-    raise HTTPException(status_code=401, detail="Invalid credentials")
+    import hashlib
+    client_hash = hashlib.sha256(f"{form_data.username}:{form_data.password}".encode()).hexdigest()[:8]
+    logger.warning("auth_login_failed", username_hash=client_hash)
+    from api_chaos_agent.core.exceptions import AuthenticationError
+    raise AuthenticationError(detail="Invalid credentials")
 
 
 @app.websocket("/ws/executions/{execution_id}")
 async def ws_execution_progress(websocket: WebSocket, execution_id: str) -> None:
     await websocket.accept()
-    _ws_connections.append(websocket)
+    await _ws_add(websocket)
     try:
         while True:
             data = await websocket.receive_text()
@@ -193,19 +255,22 @@ async def ws_execution_progress(websocket: WebSocket, execution_id: str) -> None
                 else:
                     await websocket.send_json({"type": "error", "message": "Execution not found"})
     except WebSocketDisconnect:
-        _ws_connections.remove(websocket)
+        await _ws_remove(websocket)
     except Exception:
-        if websocket in _ws_connections:
-            _ws_connections.remove(websocket)
+        await _ws_remove(websocket)
 
 
 async def broadcast_progress(execution_id: str, data: dict) -> None:
     message = {"type": "progress", "execution_id": execution_id, **data}
-    dead: list[WebSocket] = []
-    for ws in _ws_connections:
-        try:
-            await ws.send_json(message)
-        except Exception:
-            dead.append(ws)
-    for ws in dead:
-        _ws_connections.remove(ws)
+    async with _ws_lock:
+        dead: list[WebSocket] = []
+        for ws in _ws_connections:
+            try:
+                await ws.send_json(message)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            try:
+                _ws_connections.remove(ws)
+            except ValueError:
+                pass

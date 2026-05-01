@@ -137,7 +137,7 @@ class TestRound1StandardWorkflow:
         assert get_report.status_code == 200
         report = get_report.json()
         assert "findings" in report
-        assert "severity_summary" in report
+        assert "summary" in report
 
     def test_r1_full_yaml_workflow(self, client):
         upload_resp = _upload_yaml(client)
@@ -300,7 +300,7 @@ class TestRound3ServiceLayerValidation:
         report = generator.generate(test_result)
         assert isinstance(report, Report)
         assert len(report.findings) > 0
-        assert report.total_scenarios == 1
+        assert report.summary.total_scenarios == 1
 
     def test_r3_report_generator_findings_have_remediation(self):
         test_result = TestResult(total_scenarios=2, completed_scenarios=1, failed_scenarios=1)
@@ -317,8 +317,8 @@ class TestRound3ServiceLayerValidation:
         generator = ReportGenerator()
         report = generator.generate(test_result)
         for finding in report.findings:
-            assert finding.remediation is not None
-            assert len(finding.remediation) > 0
+            assert finding.recommendation is not None
+            assert len(finding.recommendation) > 0
 
 
 # ======================================================================
@@ -396,12 +396,11 @@ class TestRound4DataModelIntegrity:
             scenario_id="s1", scenario_name="Test", scenario_type="latency",
             endpoint_path="/test", endpoint_method="GET",
             severity=Severity.HIGH, vulnerability_found=True,
-            description="Server crashed on tampered input",
-            reproduction_steps=["Send request with modified field"],
-            remediation="Add input validation",
+            details="Server crashed on tampered input",
+            recommendation="Add input validation",
         )
         assert finding.vulnerability_found is True
-        assert len(finding.reproduction_steps) == 1
+        assert finding.recommendation == "Add input validation"
 
 
 # ======================================================================
@@ -469,7 +468,7 @@ class TestRound5StressConcurrency:
             ))
         generator = ReportGenerator()
         report = generator.generate(test_result)
-        assert report.total_scenarios == 20
+        assert report.summary.total_scenarios == 20
         assert len(report.findings) == 10
 
     def test_r5_full_workflow_with_minimal_scenarios(self, client):
