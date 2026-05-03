@@ -196,7 +196,11 @@ class LLMRouter:
             pass
         if self._http_client is not None and not self._http_client.is_closed:
             try:
-                self._http_client.sync_close()
+                import asyncio
+
+                loop = asyncio.new_event_loop()
+                loop.run_until_complete(self._http_client.aclose())
+                loop.close()
             except Exception:
                 pass
 
@@ -323,18 +327,22 @@ class LLMRouter:
             raise
 
     async def _call_openai(self, prompt: str, system_prompt: str = "") -> str:
+        if self._openai_client is None:
+            raise RuntimeError("OpenAI client not configured")
+
         messages: list[dict[str, str]] = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
 
+        client = self._openai_client
         loop = asyncio.get_running_loop()
         response = await asyncio.wait_for(
             loop.run_in_executor(
                 None,
-                lambda: self._openai_client.chat.completions.create(
+                lambda: client.chat.completions.create(
                     model=self._openai_model,
-                    messages=messages,
+                    messages=messages,  # type: ignore[arg-type]
                 ),
             ),
             timeout=settings.llm.cloud_timeout,
@@ -342,6 +350,10 @@ class LLMRouter:
         return response.choices[0].message.content or ""
 
     async def _call_anthropic(self, prompt: str, system_prompt: str = "") -> str:
+        if self._anthropic_client is None:
+            raise RuntimeError("Anthropic client not configured")
+
+        client = self._anthropic_client
         loop = asyncio.get_running_loop()
         kwargs: dict[str, Any] = {
             "model": self._anthropic_model,
@@ -354,7 +366,7 @@ class LLMRouter:
         response = await asyncio.wait_for(
             loop.run_in_executor(
                 None,
-                lambda: self._anthropic_client.messages.create(**kwargs),
+                lambda: client.messages.create(**kwargs),
             ),
             timeout=settings.llm.cloud_timeout,
         )

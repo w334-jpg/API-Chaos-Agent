@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Annotated
+from typing import Annotated, Any
 
 import httpx
 from fastapi import APIRouter, Query
@@ -43,7 +43,7 @@ async def create_execution(
     max_retries: int = 2,
     retry_delay_seconds: float = 1.0,
     serial: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     if not scenario_ids:
         raise RequestError(detail="scenario_ids must be a non-empty list")
     if concurrency < 1:
@@ -82,7 +82,7 @@ async def create_execution(
 
 
 @router.get("/", response_model=dict)
-async def list_executions(_user: CurrentUser, store: StoreDep) -> dict:
+async def list_executions(_user: CurrentUser, store: StoreDep) -> dict[str, Any]:
     executions = await store.list_executions()
     return {
         "executions": [

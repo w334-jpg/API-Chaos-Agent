@@ -100,7 +100,9 @@ class SchemaParser:
             raw_spec=raw_spec,
         )
 
-    def extract_endpoints(self, spec: dict, raw_paths: dict | None = None) -> list[Endpoint]:
+    def extract_endpoints(
+        self, spec: dict[str, Any], raw_paths: dict[str, Any] | None = None
+    ) -> list[Endpoint]:
         endpoints: list[Endpoint] = []
         paths = spec.get("paths", {})
         components = spec.get("components", {})
@@ -148,7 +150,7 @@ class SchemaParser:
 
         return endpoints
 
-    def infer_types(self, schema: dict) -> list[FieldConstraint]:
+    def infer_types(self, schema: dict[str, Any]) -> list[FieldConstraint]:
         if not schema:
             return []
 
@@ -185,7 +187,7 @@ class SchemaParser:
 
         return []
 
-    def _parse_parameters(self, parameters: list[dict]) -> list[Parameter]:
+    def _parse_parameters(self, parameters: list[dict[str, Any]]) -> list[Parameter]:
         result: list[Parameter] = []
         for param in parameters:
             if not isinstance(param, dict):
@@ -206,7 +208,7 @@ class SchemaParser:
         return result
 
     def _parse_request_body(
-        self, request_body: dict | None, components: dict
+        self, request_body: dict[str, Any] | None, components: dict[str, Any]
     ) -> RequestBody | None:
         if not request_body:
             return None
@@ -238,7 +240,7 @@ class SchemaParser:
             raw_schema=schema,
         )
 
-    def _resolve_ref(self, ref: str, components: dict) -> dict:
+    def _resolve_ref(self, ref: str, components: dict[str, Any]) -> dict[str, Any]:
         if not ref.startswith("#/"):
             return {}
 
@@ -255,7 +257,7 @@ class SchemaParser:
         return current if isinstance(current, dict) else {}
 
     @staticmethod
-    def _extract_base_url(spec: dict) -> str | None:
+    def _extract_base_url(spec: dict[str, Any]) -> str | None:
         servers = spec.get("servers", [])
         if servers and isinstance(servers, list) and len(servers) > 0:
             url = servers[0].get("url")
@@ -264,7 +266,9 @@ class SchemaParser:
         return None
 
     @staticmethod
-    def _parse_responses(responses: dict, raw_responses: dict | None = None) -> list[ResponseSpec]:
+    def _parse_responses(
+        responses: dict[str, Any], raw_responses: dict[str, Any] | None = None
+    ) -> list[ResponseSpec]:
         if raw_responses is None:
             raw_responses = responses
         result: list[ResponseSpec] = []
@@ -314,7 +318,9 @@ class SchemaParser:
         return result
 
     @staticmethod
-    def _build_field_constraint(name: str, schema: dict, required: bool = False) -> FieldConstraint:
+    def _build_field_constraint(
+        name: str, schema: dict[str, Any], required: bool = False
+    ) -> FieldConstraint:
         field_type = _TYPE_MAP.get(schema.get("type", "string"), FieldType.STRING)
         return FieldConstraint(
             field_name=name,

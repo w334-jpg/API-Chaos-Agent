@@ -110,7 +110,7 @@ class AuditLogger:
         until: float | None = None,
         limit: int = 100,
     ) -> list[AuditEntry]:
-        results = self._entries
+        results: list[AuditEntry] = list(self._entries)
         if provider:
             results = [e for e in results if e.provider == provider]
         if model:

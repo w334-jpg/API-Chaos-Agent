@@ -7,10 +7,12 @@ the router layer thin and the execution logic testable in isolation.
 
 from __future__ import annotations
 
+from typing import Any
+
 from api_chaos_agent.core.logging import get_logger
 from api_chaos_agent.models.report import ExecutionConfig
 from api_chaos_agent.services.execution_engine import ExecutionEngine
-from api_chaos_agent.services.store import store
+from api_chaos_agent.services.store import _StoreProxy
 
 logger = get_logger(__name__)
 
@@ -18,8 +20,8 @@ logger = get_logger(__name__)
 class ExecutionService:
     """Orchestrate chaos scenario execution with store persistence."""
 
-    def __init__(self, store: store | None = None) -> None:
-        self._store = store
+    def __init__(self, store: _StoreProxy | None = None) -> None:
+        self._store: _StoreProxy = store or _StoreProxy()
 
     async def execute_scenarios(
         self,
@@ -27,7 +29,7 @@ class ExecutionService:
         base_url: str,
         concurrency: int = 10,
         timeout_seconds: float = 30.0,
-    ) -> dict:
+    ) -> dict[str, Any]:
         scenarios = []
         for sid in scenario_ids:
             scenario = await self._store.get_scenario(sid)

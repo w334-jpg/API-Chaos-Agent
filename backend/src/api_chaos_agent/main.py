@@ -18,7 +18,7 @@ import asyncio
 import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -157,7 +157,7 @@ app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(APIVersionMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestSizeLimitMiddleware)
-app.add_middleware(RateLimitMiddleware)
+app.add_middleware(RateLimitMiddleware)  # type: ignore[arg-type]
 
 app.include_router(schema.router)
 app.include_router(scenarios.router)
@@ -193,7 +193,7 @@ async def _ws_remove(websocket: WebSocket) -> None:
 
 
 @app.get("/health", tags=["health"])
-async def health_check() -> dict:
+async def health_check() -> dict[str, Any]:
     store_stats = await store.stats()
     checks: dict[str, str] = {"store": "ok"}
 
@@ -217,18 +217,18 @@ async def health_check() -> dict:
 
 
 @app.get("/health/ready", tags=["health"])
-async def readiness_check() -> dict:
+async def readiness_check() -> dict[str, Any]:
     store_stats = await store.stats()
     return {"status": "ready", "store_stats": store_stats}
 
 
 @app.get("/health/live", tags=["health"])
-async def liveness_check() -> dict:
+async def liveness_check() -> dict[str, str]:
     return {"status": "alive"}
 
 
 @app.post("/auth/token", tags=["auth"])
-async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> dict:
+async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> dict[str, str]:
     if not settings.auth.enabled:
         return {"access_token": "disabled", "token_type": "bearer"}
     if (
@@ -277,7 +277,7 @@ async def ws_execution_progress(websocket: WebSocket, execution_id: str) -> None
         await _ws_remove(websocket)
 
 
-async def broadcast_progress(execution_id: str, data: dict) -> None:
+async def broadcast_progress(execution_id: str, data: dict[str, Any]) -> None:
     message = {"type": "progress", "execution_id": execution_id, **data}
     async with _ws_lock:
         dead: list[WebSocket] = []

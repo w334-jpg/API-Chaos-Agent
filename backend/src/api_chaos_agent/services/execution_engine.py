@@ -244,7 +244,9 @@ class ExecutionEngine:
 
         return kwargs
 
-    def _apply_tampering(self, body: dict, tamper_config: dict) -> dict:
+    def _apply_tampering(
+        self, body: dict[str, Any], tamper_config: dict[str, Any]
+    ) -> dict[str, Any]:
         body = copy.deepcopy(body)
 
         field_path = tamper_config.get("field_path", "")

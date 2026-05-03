@@ -34,60 +34,65 @@ class SQLiteStore:
         self._db_path = db_path or settings.store.sqlite_path
         self._lock = asyncio.Lock()
         Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(self._db_path)
+        self._conn: sqlite3.Connection | None = sqlite3.connect(self._db_path)
         self._init_db()
 
+    @property
+    def conn(self) -> sqlite3.Connection:
+        assert self._conn is not None, "Database connection is closed"
+        return self._conn
+
     def _init_db(self) -> None:
-        self._conn.execute("""
+        self.conn.execute("""
             CREATE TABLE IF NOT EXISTS schemas (
                 id TEXT PRIMARY KEY,
                 data TEXT NOT NULL,
                 created_at REAL NOT NULL
             )
         """)
-        self._conn.execute("""
+        self.conn.execute("""
             CREATE TABLE IF NOT EXISTS scenarios (
                 id TEXT PRIMARY KEY,
                 data TEXT NOT NULL,
                 created_at REAL NOT NULL
             )
         """)
-        self._conn.execute("""
+        self.conn.execute("""
             CREATE TABLE IF NOT EXISTS executions (
                 id TEXT PRIMARY KEY,
                 data TEXT NOT NULL,
                 created_at REAL NOT NULL
             )
         """)
-        self._conn.execute("""
+        self.conn.execute("""
             CREATE TABLE IF NOT EXISTS reports (
                 id TEXT PRIMARY KEY,
                 data TEXT NOT NULL,
                 created_at REAL NOT NULL
             )
         """)
-        self._conn.commit()
+        self.conn.commit()
 
     def _insert(self, table: str, item_id: str, data: str) -> None:
         import time
 
-        self._conn.execute(
+        self.conn.execute(
             f"INSERT OR REPLACE INTO {table} (id, data, created_at) VALUES (?, ?, ?)",
             (item_id, data, time.time()),
         )
-        self._conn.commit()
+        self.conn.commit()
 
     def _get(self, table: str, item_id: str) -> str | None:
-        cursor = self._conn.execute(f"SELECT data FROM {table} WHERE id = ?", (item_id,))
+        cursor = self.conn.execute(f"SELECT data FROM {table} WHERE id = ?", (item_id,))
         row = cursor.fetchone()
         return row[0] if row else None
 
     def _list(self, table: str) -> dict[str, str]:
-        cursor = self._conn.execute(f"SELECT id, data FROM {table}")
+        cursor = self.conn.execute(f"SELECT id, data FROM {table}")
         return {row[0]: row[1] for row in cursor.fetchall()}
 
     def _list_paginated(self, table: str, offset: int = 0, limit: int = 100) -> dict[str, str]:
-        cursor = self._conn.execute(
+        cursor = self.conn.execute(
             f"SELECT id, data FROM {table} ORDER BY created_at DESC LIMIT ? OFFSET ?",
             (limit, offset),
         )
@@ -163,42 +168,42 @@ class SQLiteStore:
     async def clear(self) -> None:
         async with self._lock:
             for table in ("schemas", "scenarios", "executions", "reports"):
-                self._conn.execute(f"DELETE FROM {table}")
-            self._conn.commit()
+                self.conn.execute(f"DELETE FROM {table}")
+            self.conn.commit()
 
     def clear_sync(self) -> None:
         for table in ("schemas", "scenarios", "executions", "reports"):
-            self._conn.execute(f"DELETE FROM {table}")
-        self._conn.commit()
+            self.conn.execute(f"DELETE FROM {table}")
+        self.conn.commit()
 
     async def iter_schemas(self):
         async with self._lock:
-            cursor = self._conn.execute("SELECT id, data FROM schemas")
+            cursor = self.conn.execute("SELECT id, data FROM schemas")
             for row in cursor.fetchall():
                 yield row[0], APISpec.model_validate_json(row[1])
 
     async def iter_scenarios(self):
         async with self._lock:
-            cursor = self._conn.execute("SELECT id, data FROM scenarios")
+            cursor = self.conn.execute("SELECT id, data FROM scenarios")
             for row in cursor.fetchall():
                 yield row[0], ChaosScenario.model_validate_json(row[1])
 
     async def iter_executions(self):
         async with self._lock:
-            cursor = self._conn.execute("SELECT id, data FROM executions")
+            cursor = self.conn.execute("SELECT id, data FROM executions")
             for row in cursor.fetchall():
                 yield row[0], TestResult.model_validate_json(row[1])
 
     async def iter_reports(self):
         async with self._lock:
-            cursor = self._conn.execute("SELECT id, data FROM reports")
+            cursor = self.conn.execute("SELECT id, data FROM reports")
             for row in cursor.fetchall():
                 yield row[0], Report.model_validate_json(row[1])
 
     async def stats(self) -> dict[str, int]:
         result: dict[str, int] = {}
         for table in ("schemas", "scenarios", "executions", "reports"):
-            cursor = self._conn.execute(f"SELECT COUNT(*) FROM {table}")
+            cursor = self.conn.execute(f"SELECT COUNT(*) FROM {table}")
             result[table] = cursor.fetchone()[0]
         return result
 

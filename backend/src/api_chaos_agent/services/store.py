@@ -13,6 +13,7 @@ import asyncio
 import time
 import uuid
 from collections import OrderedDict
+from collections.abc import AsyncGenerator
 from typing import Any
 
 from api_chaos_agent.core.config import settings
@@ -21,7 +22,7 @@ from api_chaos_agent.models.scenario import ChaosScenario
 from api_chaos_agent.models.schema import APISpec
 
 
-class _ExpiryOrderedDict(OrderedDict):
+class _ExpiryOrderedDict(OrderedDict[str, Any]):
     """OrderedDict with timestamp tracking for TTL-based eviction."""
 
     def __init__(self, maxsize: int = 1000, ttl: float = 3600):
@@ -176,22 +177,22 @@ class InMemoryStore:
         self._executions.clear()
         self._reports.clear()
 
-    async def iter_schemas(self):
+    async def iter_schemas(self) -> AsyncGenerator[tuple[str, APISpec], None]:
         async with self._lock:
             for key, value in list(self._schemas.items()):
                 yield key, value
 
-    async def iter_scenarios(self):
+    async def iter_scenarios(self) -> AsyncGenerator[tuple[str, ChaosScenario], None]:
         async with self._lock:
             for key, value in list(self._scenarios.items()):
                 yield key, value
 
-    async def iter_executions(self):
+    async def iter_executions(self) -> AsyncGenerator[tuple[str, TestResult], None]:
         async with self._lock:
             for key, value in list(self._executions.items()):
                 yield key, value
 
-    async def iter_reports(self):
+    async def iter_reports(self) -> AsyncGenerator[tuple[str, Report], None]:
         async with self._lock:
             for key, value in list(self._reports.items()):
                 yield key, value
@@ -209,13 +210,13 @@ def _create_store() -> InMemoryStore:
     return InMemoryStore()
 
 
-def _create_persistent_store():
+def _create_persistent_store() -> InMemoryStore:
     from api_chaos_agent.services.sqlite_store import SQLiteStore
 
-    return SQLiteStore()
+    return SQLiteStore()  # type: ignore[return-value]
 
 
-def create_store():
+def create_store() -> InMemoryStore:
     if settings.store.backend == "sqlite":
         return _create_persistent_store()
     return _create_store()

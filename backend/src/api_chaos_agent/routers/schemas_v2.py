@@ -24,15 +24,15 @@ async def parse_schema_v2(_user: CurrentUser, file: UploadFile = File(...)):
     text = content.decode("utf-8")
 
     if protocol == ApiProtocol.GRPC:
-        parser = GrpcSchemaParser()
+        grpc_parser = GrpcSchemaParser()
         try:
-            return parser.parse_text(text)
+            return grpc_parser.parse_text(text)
         except Exception as e:
             raise SchemaParseError(detail=f"gRPC parse error: {e}")
     elif protocol == ApiProtocol.GRAPHQL:
-        parser = GraphQLSchemaParser()
+        gql_parser = GraphQLSchemaParser()
         try:
-            return parser.parse_text(text)
+            return gql_parser.parse_text(text)
         except Exception as e:
             raise SchemaParseError(detail=f"GraphQL parse error: {e}")
     else:

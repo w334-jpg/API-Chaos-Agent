@@ -58,8 +58,8 @@ _PLAN_HIERARCHY: dict[TenantPlan, int] = {
 }
 
 
-def require_plan(*allowed_plans: TenantPlan):
-    def decorator(func: Callable) -> Callable:
+def require_plan(*allowed_plans: TenantPlan) -> Callable[..., Any]:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             tenant = kwargs.get("tenant") or kwargs.get("current_tenant")
@@ -84,8 +84,8 @@ def require_plan(*allowed_plans: TenantPlan):
     return decorator
 
 
-def require_feature(feature: str):
-    def decorator(func: Callable) -> Callable:
+def require_feature(feature: str) -> Callable[..., Any]:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             tenant = kwargs.get("tenant") or kwargs.get("current_tenant")
@@ -121,7 +121,7 @@ def get_features_for_plan(plan: TenantPlan) -> dict[str, bool]:
 
 def check_quota(plan: TenantPlan, resource: str, current_usage: int) -> bool:
     quota = get_quota_for_plan(plan)
-    limit = getattr(quota, resource, None)
+    limit: Any = getattr(quota, resource, None)
     if limit is None:
         return True
-    return current_usage < limit
+    return current_usage < int(limit)

@@ -91,7 +91,7 @@ class ConfigReloader:
         try:
             import tomllib
         except ImportError:
-            import tomli as tomllib
+            import tomli as tomllib  # type: ignore[no-redef]
 
         if not self._config_path.exists():
             return old

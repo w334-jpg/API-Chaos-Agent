@@ -15,8 +15,8 @@ Supports:
 
 from __future__ import annotations
 
-import time
 import uuid
+from datetime import datetime
 from typing import Any
 
 from api_chaos_agent.core.logging import get_logger
@@ -205,7 +205,7 @@ class CiCdService:
             branch=pipeline.config.branch,
         )
         self._runs.setdefault(pipeline_id, []).append(run)
-        pipeline.last_run_at = time.monotonic()
+        pipeline.last_run_at = datetime.now()
         pipeline.last_run_status = "running"
         logger.info("pipeline_run_triggered", run_id=run.id, pipeline_id=pipeline_id)
         return run
@@ -223,7 +223,7 @@ class CiCdService:
         for run in runs:
             if run.id == run_id:
                 run.status = "completed" if success else "failed"
-                run.completed_at = time.monotonic()
+                run.completed_at = datetime.now()
                 run.report_id = report_id
                 run.vulnerabilities_found = vulnerabilities
                 run.max_severity = max_severity

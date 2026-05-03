@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter
 
 from api_chaos_agent.core.deps import StoreDep
@@ -18,7 +20,7 @@ _MAX_ID_LEN = 256
 
 
 @router.post("/generate/{schema_id}", response_model=dict)
-async def generate_scenarios(schema_id: str, _user: CurrentUser, store: StoreDep) -> dict:
+async def generate_scenarios(schema_id: str, _user: CurrentUser, store: StoreDep) -> dict[str, Any]:
     if len(schema_id) > _MAX_ID_LEN:
         raise RequestError(detail="schema_id too long")
 
@@ -43,7 +45,7 @@ async def generate_scenarios(schema_id: str, _user: CurrentUser, store: StoreDep
 
 
 @router.get("/", response_model=dict)
-async def list_scenarios(_user: CurrentUser, store: StoreDep) -> dict:
+async def list_scenarios(_user: CurrentUser, store: StoreDep) -> dict[str, Any]:
     scenarios = await store.list_scenarios()
     return {
         "scenarios": [
@@ -77,7 +79,7 @@ async def execute_scenarios(
     store: StoreDep,
     concurrency: int = 10,
     timeout_seconds: float = 30.0,
-) -> dict:
+) -> dict[str, Any]:
     if not scenario_ids:
         raise RequestError(detail="scenario_ids must be a non-empty list")
 

@@ -60,7 +60,7 @@ class SchemaSanitizer:
         self._sanitize_info(spec)
         return spec
 
-    def _sanitize_servers(self, spec: dict) -> None:
+    def _sanitize_servers(self, spec: dict[str, Any]) -> None:
         for server in spec.get("servers", []):
             if isinstance(server, dict):
                 url = server.get("url", "")
@@ -71,7 +71,7 @@ class SchemaSanitizer:
                         if isinstance(var, dict) and "default" in var:
                             var["default"] = self._sanitize_value(key, var["default"])
 
-    def _sanitize_paths(self, spec: dict) -> None:
+    def _sanitize_paths(self, spec: dict[str, Any]) -> None:
         for path_item in spec.get("paths", {}).values():
             if not isinstance(path_item, dict):
                 continue
@@ -80,7 +80,7 @@ class SchemaSanitizer:
                     continue
                 self._sanitize_operation(operation)
 
-    def _sanitize_operation(self, operation: dict) -> None:
+    def _sanitize_operation(self, operation: dict[str, Any]) -> None:
         for param in operation.get("parameters", []):
             if isinstance(param, dict):
                 self._sanitize_parameter(param)
@@ -98,7 +98,7 @@ class SchemaSanitizer:
                         header_val["schema"]["default"] = _REDACTED
                         header_val["schema"]["example"] = _REDACTED
 
-    def _sanitize_parameter(self, param: dict) -> None:
+    def _sanitize_parameter(self, param: dict[str, Any]) -> None:
         name = param.get("name", "")
         if self._is_sensitive_param_name(name):
             schema = param.get("schema", {})
@@ -109,7 +109,7 @@ class SchemaSanitizer:
                     schema["enum"] = [_REDACTED]
             param["description"] = self._redact_description(param.get("description", ""))
 
-    def _sanitize_request_body(self, body: dict) -> None:
+    def _sanitize_request_body(self, body: dict[str, Any]) -> None:
         for ct_value in body.get("content", {}).values():
             if not isinstance(ct_value, dict):
                 continue
@@ -120,7 +120,7 @@ class SchemaSanitizer:
             if isinstance(example, dict):
                 ct_value["example"] = self._sanitize_example(example)
 
-    def _sanitize_schema(self, schema: dict) -> None:
+    def _sanitize_schema(self, schema: dict[str, Any]) -> None:
         properties = schema.get("properties", {})
         if isinstance(properties, dict):
             for prop_name, prop_schema in properties.items():
@@ -138,7 +138,7 @@ class SchemaSanitizer:
         if isinstance(items, dict):
             self._sanitize_schema(items)
 
-    def _sanitize_components(self, spec: dict) -> None:
+    def _sanitize_components(self, spec: dict[str, Any]) -> None:
         components = spec.get("components", {})
         security_schemes = components.get("securitySchemes", {})
         if isinstance(security_schemes, dict):
@@ -156,7 +156,7 @@ class SchemaSanitizer:
             if isinstance(schema_def, dict):
                 self._sanitize_schema(schema_def)
 
-    def _sanitize_security(self, spec: dict) -> None:
+    def _sanitize_security(self, spec: dict[str, Any]) -> None:
         security = spec.get("security", [])
         if isinstance(security, list):
             for sec_req in security:
@@ -164,7 +164,7 @@ class SchemaSanitizer:
                     for scheme_name, scopes in sec_req.items():
                         sec_req[scheme_name] = [_REDACTED if s else s for s in (scopes or [])]
 
-    def _sanitize_info(self, spec: dict) -> None:
+    def _sanitize_info(self, spec: dict[str, Any]) -> None:
         contact = spec.get("info", {}).get("contact", {})
         if isinstance(contact, dict):
             if "email" in contact:
@@ -184,8 +184,8 @@ class SchemaSanitizer:
             return self._sanitize_url(value)
         return value
 
-    def _sanitize_example(self, example: dict) -> dict:
-        result = {}
+    def _sanitize_example(self, example: dict[str, Any]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
         for key, value in example.items():
             if self._is_sensitive_param_name(key):
                 result[key] = _REDACTED

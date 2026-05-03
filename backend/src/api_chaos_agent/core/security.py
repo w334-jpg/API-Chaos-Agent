@@ -8,7 +8,7 @@ consistent error response format across the application.
 from __future__ import annotations
 
 import datetime as _dt
-from typing import Annotated
+from typing import Annotated, Any
 
 import jwt
 from fastapi import Depends
@@ -28,7 +28,7 @@ def create_access_token(subject: str, expires_delta: _dt.timedelta | None = None
     return jwt.encode(payload, settings.auth.secret_key, algorithm=settings.auth.algorithm)
 
 
-def _decode_token(token: str) -> dict:
+def _decode_token(token: str) -> dict[str, Any]:
     try:
         return jwt.decode(token, settings.auth.secret_key, algorithms=[settings.auth.algorithm])
     except jwt.ExpiredSignatureError:
@@ -39,7 +39,7 @@ def _decode_token(token: str) -> dict:
 
 async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
-) -> dict:
+) -> dict[str, Any]:
     if not settings.auth.enabled:
         return {"sub": "anonymous"}
     if credentials is None:
@@ -47,4 +47,4 @@ async def get_current_user(
     return _decode_token(credentials.credentials)
 
 
-CurrentUser = Annotated[dict, Depends(get_current_user)]
+CurrentUser = Annotated[dict[str, Any], Depends(get_current_user)]

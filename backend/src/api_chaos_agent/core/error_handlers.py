@@ -138,7 +138,7 @@ async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSON
 
 
 def register_exception_handlers(app: FastAPI) -> None:
-    app.add_exception_handler(ChaosAgentError, _chaos_agent_error_handler)
-    app.add_exception_handler(RequestValidationError, _validation_error_handler)
-    app.add_exception_handler(ValidationError, _pydantic_validation_error_handler)
+    app.add_exception_handler(ChaosAgentError, _chaos_agent_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RequestValidationError, _validation_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(ValidationError, _pydantic_validation_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, _unhandled_exception_handler)

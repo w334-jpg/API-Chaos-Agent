@@ -18,6 +18,7 @@ import importlib
 import json
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
@@ -321,7 +322,7 @@ class PluginManager:
             output = await instance.execute(scenario, config)
             elapsed = (time.monotonic() - start) * 1000
             fp.execution_count += 1
-            fp.last_executed_at = time.monotonic()
+            fp.last_executed_at = datetime.now()
             return FaultPluginExecution(
                 plugin_id=plugin_name,
                 scenario_id=scenario.id,

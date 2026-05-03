@@ -47,7 +47,7 @@ _TYPE_MAP: dict[str, FieldType] = {
 class PostmanAdapter:
     """Adapter for importing and exporting Postman Collection v2.1 format."""
 
-    def import_collection(self, data: str | dict) -> APISpec:
+    def import_collection(self, data: str | dict[str, Any]) -> APISpec:
         if isinstance(data, str):
             raw = json.loads(data)
         else:
@@ -112,7 +112,7 @@ class PostmanAdapter:
         collection = self.export_collection(spec)
         return json.dumps(collection, indent=indent, ensure_ascii=False)
 
-    def _flatten_items(self, items: list[dict]) -> list[Endpoint]:
+    def _flatten_items(self, items: list[dict[str, Any]]) -> list[Endpoint]:
         endpoints: list[Endpoint] = []
         for item in items:
             if "item" in item and isinstance(item["item"], list):
@@ -123,7 +123,7 @@ class PostmanAdapter:
                     endpoints.append(endpoint)
         return endpoints
 
-    def _parse_request(self, item: dict) -> Endpoint | None:
+    def _parse_request(self, item: dict[str, Any]) -> Endpoint | None:
         request = item.get("request", {})
         if not isinstance(request, dict):
             return None
@@ -168,9 +168,12 @@ class PostmanAdapter:
                 return "/" + rest.split("/", 1)[1]
         return "/"
 
-    def _parse_postman_params(self, request: dict) -> list[Parameter]:
+    def _parse_postman_params(self, request: dict[str, Any]) -> list[Parameter]:
         params: list[Parameter] = []
-        for param in request.get("url", {}).get("query", []) or []:
+        url_obj = request.get("url", {})
+        if isinstance(url_obj, str):
+            return params
+        for param in url_obj.get("query", []) or []:
             if not isinstance(param, dict):
                 continue
             params.append(
@@ -182,7 +185,7 @@ class PostmanAdapter:
                     description=param.get("description", ""),
                 )
             )
-        for param in request.get("url", {}).get("variable", []) or []:
+        for param in url_obj.get("variable", []) or []:
             if not isinstance(param, dict):
                 continue
             params.append(
@@ -208,7 +211,7 @@ class PostmanAdapter:
             )
         return params
 
-    def _parse_postman_body(self, request: dict) -> RequestBody | None:
+    def _parse_postman_body(self, request: dict[str, Any]) -> RequestBody | None:
         body = request.get("body", {})
         if not body or not isinstance(body, dict):
             return None
@@ -278,7 +281,7 @@ class PostmanAdapter:
 
         return None
 
-    def _infer_fields_from_dict(self, data: dict) -> list[FieldConstraint]:
+    def _infer_fields_from_dict(self, data: dict[str, Any]) -> list[FieldConstraint]:
         fields: list[FieldConstraint] = []
         for key, value in data.items():
             if isinstance(value, str):
@@ -298,7 +301,7 @@ class PostmanAdapter:
             fields.append(FieldConstraint(field_name=key, field_type=ft))
         return fields
 
-    def _parse_postman_responses(self, item: dict) -> list[ResponseSpec]:
+    def _parse_postman_responses(self, item: dict[str, Any]) -> list[ResponseSpec]:
         responses: list[ResponseSpec] = []
         for resp in item.get("response", []) or []:
             if not isinstance(resp, dict):
@@ -419,7 +422,7 @@ class PostmanAdapter:
         }
 
     @staticmethod
-    def _extract_base_url(variables: list[dict]) -> str | None:
+    def _extract_base_url(variables: list[dict[str, Any]]) -> str | None:
         for var in variables:
             if isinstance(var, dict) and var.get("key") == "base_url":
                 return var.get("value")

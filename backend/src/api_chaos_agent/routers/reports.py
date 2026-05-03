@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html as html_module
+from typing import Any
 
 from fastapi import APIRouter
 
@@ -28,7 +29,7 @@ async def generate_report(
     _user: CurrentUser,
     store: StoreDep,
     format: str = "json",
-) -> dict:
+) -> dict[str, Any]:
     if len(execution_id) > _MAX_ID_LEN:
         raise RequestError(detail="execution_id too long")
 
@@ -61,7 +62,7 @@ async def generate_report(
 
 
 @router.get("/", response_model=dict)
-async def list_reports(_user: CurrentUser, store: StoreDep) -> dict:
+async def list_reports(_user: CurrentUser, store: StoreDep) -> dict[str, Any]:
     reports = await store.list_reports()
     return {
         "reports": [

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from fastapi import APIRouter, File, UploadFile
 
@@ -42,7 +43,7 @@ async def upload_schema(
     _user: CurrentUser,
     store: StoreDep,
     file: UploadFile = File(...),
-) -> dict:
+) -> dict[str, Any]:
     if not file.filename:
         raise SchemaError(detail="No filename provided")
 
@@ -85,7 +86,7 @@ async def upload_schema(
 
 
 @router.get("/", response_model=dict)
-async def list_schemas(_user: CurrentUser, store: StoreDep) -> dict:
+async def list_schemas(_user: CurrentUser, store: StoreDep) -> dict[str, Any]:
     schemas = await store.list_schemas()
     return {
         "schemas": [
